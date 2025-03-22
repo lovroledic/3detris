@@ -29,10 +29,6 @@ unsigned int currScrHeight = SCREEN_HEIGHT;
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
 
-Camera camera(glm::vec3(-1.0f, 12.0f, -1.0f));
-float lastX = SCREEN_WIDTH  / 2;
-float lastY = SCREEN_HEIGHT / 2;
-bool firstMouse = true;
 
 // Game area dimensions
 //const unsigned int X = 8, Y = 12, Z = 8;
@@ -46,7 +42,7 @@ const float G_OFFSET_Y = 0;
 const float G_OFFSET_Z = 0;
 // Default player-controlled block area index offset
 const int B_OFFSET_X = X / 2;
-const int B_OFFSET_Y = Y - 1;
+const int B_OFFSET_Y = Y;
 const int B_OFFSET_Z = Z / 2;
 int bxIndex = B_OFFSET_X;
 int byIndex = B_OFFSET_Y;
@@ -54,6 +50,93 @@ int bzIndex = B_OFFSET_Z;
 const int bX = 1;
 const int bY = 1;
 const int bZ = 1;
+
+
+Camera camera(glm::vec3(X / 2.0f, Y + 4, Z * 2));
+float lastX = SCREEN_WIDTH  / 2;
+float lastY = SCREEN_HEIGHT / 2;
+bool firstMouse = true;
+
+struct CustomBlock
+{
+    bool positions[3][3][3];
+    int X;
+    int Y;
+    int Z;
+    int rowCount[3];
+};
+
+CustomBlock customBlock;
+
+CustomBlock cube = {
+    .positions = {
+        { // Y = 0
+            { 1, 1, 0 },
+            { 1, 1, 0 },
+            { 0, 0, 0 },
+        },
+        { // Y = 1
+            { 1, 1, 0 },
+            { 1, 1, 0 },
+            { 0, 0, 0 },
+        },
+        { // Y = 2
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+        },
+    },
+    .X = 2,
+    .Y = 2,
+    .Z = 2,
+    .rowCount = { 4, 4, 0 }
+};
+CustomBlock stick = {
+    .positions = {
+        { // Y = 0
+            { 1, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+        },
+        { // Y = 1
+            { 1, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+        },
+        { // Y = 2
+            { 1, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+        },
+    },
+    .X = 1,
+    .Y = 3,
+    .Z = 1,
+    .rowCount = { 1, 1, 1 }
+};
+CustomBlock weird = {
+    .positions = {
+        { // Y = 0
+            { 0, 0, 0 },
+            { 0, 1, 0 },
+            { 0, 0, 0 },
+        },
+        { // Y = 1
+            { 0, 1, 0 },
+            { 1, 1, 0 },
+            { 0, 0, 0 },
+        },
+        { // Y = 2
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+        },
+    },
+    .X = 2,
+    .Y = 2,
+    .Z = 2,
+    .rowCount = { 1, 3, 0 }
+};
 
 int main()
 {
@@ -175,6 +258,9 @@ int main()
     bool gameActive = true;
     glm::vec3 color = glm::vec3(0.8, 0.8, 0.8);
 
+    //bool shouldChangeBlock = true;
+    customBlock = cube;
+
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     // Render loop
@@ -213,7 +299,7 @@ int main()
         glDrawArrays(GL_LINES, 0, 24);
 
         // For navigating where +x/+z is
-        model = glm::translate(model, glm::vec3(5.0f, 0.0f, 5.0f));
+        model = glm::translate(model, glm::vec3(10.0f, 0.0f, 10.0f));
         shader.setMat4("model", model);
         whiteBlock.draw();
 
@@ -229,7 +315,101 @@ int main()
 
         float GAME_SPEED = 2;
         int tick = 0;
+        /*if (shouldChangeBlock)
+        {
+            int r = rand() % 3;
+            if (r == 0) customBlock = cube;
+            else if (r == 1) customBlock = stick;
+            else customBlock = weird;
+            shouldChangeBlock = false;
+        }*/
+
         if (gameActive)
+        {
+            tick = currFrameTime * GAME_SPEED - tickOffset;
+            byIndex = B_OFFSET_Y - customBlock.Y - tick; // Move falling block down by 1 each tick
+    
+            model = glm::mat4(1.0f);
+            glm::vec3 pos = glm::vec3(G_OFFSET_X + bxIndex, G_OFFSET_Y + byIndex, G_OFFSET_Z + bzIndex);
+            model = glm::translate(model, pos);
+            shader.setMat4("model", model);
+
+
+            bool collisionDetected = false;
+
+            // Block reached the ground
+            if (byIndex < 0)
+                collisionDetected = true;
+            else
+                // Check if falling block collided with a static block
+                for (int j = 0; j < customBlock.Y && !collisionDetected; j++)
+                    for (int i = 0; i < customBlock.X && !collisionDetected; i++)
+                        for (int k = 0; k < customBlock.Z && !collisionDetected; k++)
+                            if (customBlock.positions[j][i][k] && positions[bxIndex + i][byIndex + j][bzIndex + k])
+                                collisionDetected = true;
+    
+            if (collisionDetected)
+            {
+                // Lock the block in place (one block above the block it collided with)
+                for (int j = 0; j < customBlock.Y; j++)
+                    for (int i = 0; i < customBlock.X; i++)
+                        for (int k = 0; k < customBlock.Z; k++)
+                            if (customBlock.positions[j][i][k])
+                                positions[bxIndex + i][byIndex + j + 1][bzIndex + k] = true;
+
+                for (int i = 0; i < customBlock.X; i++)
+                    for (int k = 0; k < customBlock.Z; k++)
+                        // Last controlled block got locked in place at the top => GAME OVER
+                        if (positions[bxIndex + i][Y - 1][bzIndex + k])
+                        {
+                            gameActive = false;
+                            color = glm::vec3(0.8f, 0.0f, 0.0f);
+                        }
+                        if (gameActive)
+                        {
+                            for (int j = 0; j < customBlock.Y; j++)
+                                rowOccupancyStack[byIndex + 1 + j] += customBlock.rowCount[j];
+                            
+                            std::cout << "Count per row:" << std::endl;
+                            for (int j = 0; j < Y; j++)
+                                std::cout << "\trow #" << j + 1 << "\t" << rowOccupancyStack[j] << std::endl; 
+
+                            // Rows in which the last block just got locked in place got filled up => empty them and move everything above them down
+                            for (int j = 0; j < customBlock.Y; j++)
+                                if (rowOccupancyStack[byIndex + 1 + j] == X * Z)
+                                {
+                                    for (int jj = byIndex + 1; jj < Y - 1; jj++)
+                                    {
+                                        rowOccupancyStack[jj] = rowOccupancyStack[jj + 1]; // this won't update the top row, but it should still always be 0 because otherwise it's game over
+                                        
+                                        for (int i = 0; i < X; i++)
+                                            for (int k = 0; k < Z; k++)
+                                                positions[i][jj][k] = positions[i][jj + 1][k];
+                                    }
+
+                                    std::cout << "!!! Cleared row " << byIndex + 2 << " !!!" << std::endl;
+                                    j--;
+                                }
+                        }
+                
+                tickOffset += tick;
+                //shouldChangeBlock = true;
+            }
+            // No collision => draw next frame of falling block
+            else
+            {
+                for (int j = 0; j < customBlock.Y; j++)
+                    for (int i = 0; i < customBlock.X; i++)
+                        for (int k = 0; k < customBlock.Z; k++)
+                            if (customBlock.positions[j][i][k])
+                            {
+                                model = glm::translate(glm::mat4(1.0f), glm::vec3(pos.x + i, pos.y + j, pos.z + k));
+                                shader.setMat4("model", model);
+                                coloredCube.draw();
+                            }
+            }
+        }
+        /* if (gameActive)
         {
             tick = currFrameTime * GAME_SPEED - tickOffset;
             byIndex = B_OFFSET_Y - tick; // Move falling block down by 1 each tick
@@ -275,7 +455,8 @@ int main()
             }
             else
                 coloredCube.draw();
-        }
+        } */
+
         
 
         // Draw occupied blocks
@@ -347,7 +528,7 @@ void processInput(GLFWwindow* window)
     // moveX/Z variables make is so the user has to click individually for each movement (you can't hold to move)
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS && !moveX)
     {
-        if (bxIndex + bX < X)
+        if (bxIndex + customBlock.X < X)
             bxIndex += 1;
         moveX = true;
     }
@@ -364,7 +545,7 @@ void processInput(GLFWwindow* window)
 
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS && !moveZ)      //     +----- +x (right)
     {                                                                       //     |
-        if (bzIndex + bZ < Z)                               //     |
+        if (bzIndex + customBlock.Z < Z)                               //     |
             bzIndex += 1;                                              //    +z (down)
         moveZ = true;
     }
