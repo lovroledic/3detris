@@ -83,6 +83,11 @@ class Mesh
             glBindTexture(GL_TEXTURE_2D, material.diffuseTextureID);
             glDrawArrays(GL_TRIANGLES, 0, vertices.size());
         }
+        void del()
+        {
+            glDeleteVertexArrays(1, &VAO);
+            glDeleteBuffers(1, &VBO);
+        }
 };
 
 
@@ -109,9 +114,16 @@ class Model
 
         void draw()
         {
-            for (Mesh m : this->LoadedMeshes)
+            for (Mesh mesh : this->LoadedMeshes)
             {
-                m.draw();
+                mesh.draw();
+            }
+        }
+        void del()
+        {
+            for (Mesh mesh : this->LoadedMeshes)
+            {
+                mesh.del();
             }
         }
 

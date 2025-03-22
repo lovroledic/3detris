@@ -29,21 +29,31 @@ unsigned int currScrHeight = SCREEN_HEIGHT;
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
 
-Camera camera(glm::vec3(0.0f, 17.0f, 0.0f));
+Camera camera(glm::vec3(-1.0f, 12.0f, -1.0f));
 float lastX = SCREEN_WIDTH  / 2;
 float lastY = SCREEN_HEIGHT / 2;
 bool firstMouse = true;
 
 // Game area dimensions
 //const unsigned int X = 8, Y = 12, Z = 8;
-const int X = 4, Y = 6, Z = 4;
-const float xOffset = X / 2. - (X + 1) % 2 / 2.0f,
-            yOffset = -0.5f,
-            zOffset = Z / 2 - (Z + 1) % 2 / 2.0f;
-float blockOffsetX = (X + 1) % 2 / 2.0f;
-float blockOffsetZ = (Z + 1) % 2 / 2.0f;
+const int X = 6, Y = 8, Z = 6;
 bool moveX = false;
 bool moveZ = false;
+
+// Game area offset (relative to (0,0,0))
+const float G_OFFSET_X = 0;
+const float G_OFFSET_Y = 0;
+const float G_OFFSET_Z = 0;
+// Default player-controlled block area index offset
+const int B_OFFSET_X = X / 2;
+const int B_OFFSET_Y = Y - 1;
+const int B_OFFSET_Z = Z / 2;
+int bxIndex = B_OFFSET_X;
+int byIndex = B_OFFSET_Y;
+int bzIndex = B_OFFSET_Z;
+const int bX = 1;
+const int bY = 1;
+const int bZ = 1;
 
 int main()
 {
@@ -84,148 +94,47 @@ int main()
     // Build and compile shader program
     Shader shader("shaders/my_shader.vert", "shaders/my_shader.frag");
 
-    float vertices[] = {
-        // positions          // normals           // texture coords
-        // BACK
-         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f, // 4
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f, // 0
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f, // 2
-         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f, // 4
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f, // 2
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f, // 6
-        // FRONT
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f, // 1
-         0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f, // 5
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f, // 7
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f, // 1
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f, // 7
-        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f, // 3
-        // LEFT
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f, // 0
-        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f, // 1
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f, // 3
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f, // 0
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f, // 3
-        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f, // 2
-        // RIGHT
-         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f, // 5
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f, // 4
-         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f, // 6
-         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f, // 5
-         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f, // 6
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f, // 7
-        // BOTTOM
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f, // 0
-         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  1.0f, // 4
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f, // 5
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f, // 0
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f, // 5
-        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  0.0f, // 1
-        // TOP
-        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f, // 3
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f, // 7
-         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f, // 6
-        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f, // 3
-         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f, // 6
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f  // 2
-    };
-
-    glm::vec3 cubeBlockPositions[] = {
-        glm::vec3(-0.5f, -0.5f, -0.5f),
-        glm::vec3(-0.5f, -0.5f,  0.5f),
-        glm::vec3(-0.5f,  0.5f, -0.5f),
-        glm::vec3(-0.5f,  0.5f,  0.5f),
-        glm::vec3( 0.5f, -0.5f, -0.5f),
-        glm::vec3( 0.5f, -0.5f,  0.5f),
-        glm::vec3( 0.5f,  0.5f, -0.5f),
-        glm::vec3( 0.5f,  0.5f,  0.5f),
-    };
-    glm::vec3 flatBlockPositions[] = {
-        glm::vec3(-1.5f, -0.5f, -1.5f),
-        glm::vec3(-1.5f, -0.5f, -0.5f),
-        glm::vec3(-0.5f, -0.5f, -1.5f),
-        glm::vec3(-0.5f, -0.5f, -0.5f),
-        glm::vec3(-0.5f, -0.5f,  0.5f),
-        glm::vec3(-0.5f, -0.5f,  1.5f),
-        glm::vec3(-1.5f, -0.5f,  0.5f),
-        glm::vec3(-1.5f, -0.5f,  1.5f),
-
-        glm::vec3( 1.5f, -0.5f, -1.5f),
-        glm::vec3( 1.5f, -0.5f, -0.5f),
-        glm::vec3( 0.5f, -0.5f, -1.5f),
-        glm::vec3( 0.5f, -0.5f, -0.5f),
-        glm::vec3( 0.5f, -0.5f,  0.5f),
-        glm::vec3( 0.5f, -0.5f,  1.5f),
-        glm::vec3( 1.5f, -0.5f,  0.5f),
-        glm::vec3( 1.5f, -0.5f,  1.5f),
-    };
-    glm::vec3 LBlockPositions[] = {
-        glm::vec3(-0.5f, -0.5f, -0.5f),
-        glm::vec3(-0.5f, -0.5f,  0.5f),
-        glm::vec3(-0.5f,  0.5f, -0.5f),
-        glm::vec3(-0.5f,  0.5f,  0.5f),
-
-        glm::vec3( 0.5f, -0.5f, -0.5f),
-        glm::vec3( 0.5f, -0.5f,  0.5f),
-
-        glm::vec3( 1.5f, -0.5f, -0.5f),
-        glm::vec3( 1.5f, -0.5f,  0.5f),
-    };
 
     float borderVertices[] = {
-        -X / 2.0f,  0.0f,  -Z / 2.0f,
-        -X / 2.0f,  0.0f,   Z / 2.0f,
+        // bottom square
+            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
 
-        -X / 2.0f,  0.0f,   Z / 2.0f,
-         X / 2.0f,  0.0f,   Z / 2.0f,
+            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
 
-         X / 2.0f,  0.0f,   Z / 2.0f,
-         X / 2.0f,  0.0f,  -Z / 2.0f,
+        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
-         X / 2.0f,  0.0f,  -Z / 2.0f,
-        -X / 2.0f,  0.0f,  -Z / 2.0f,
+        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
-        -X / 2.0f,     Y,  -Z / 2.0f,
-        -X / 2.0f,     Y,   Z / 2.0f,
+        // top square
+            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
 
-        -X / 2.0f,     Y,   Z / 2.0f,
-         X / 2.0f,     Y,   Z / 2.0f,
+            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
 
-         X / 2.0f,     Y,   Z / 2.0f,
-         X / 2.0f,     Y,  -Z / 2.0f,
+        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
-         X / 2.0f,     Y,  -Z / 2.0f,
-        -X / 2.0f,     Y,  -Z / 2.0f,
+        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
-        -X / 2.0f,  0.0f,  -Z / 2.0f,
-        -X / 2.0f,     Y,  -Z / 2.0f,
+        // vertical lines connecting bottom and top square
+            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
-        -X / 2.0f,  0.0f,   Z / 2.0f,
-        -X / 2.0f,     Y,   Z / 2.0f,
+            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
 
-         X / 2.0f,  0.0f,   Z / 2.0f,
-         X / 2.0f,     Y,   Z / 2.0f,
+        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
 
-         X / 2.0f,  0.0f,  -Z / 2.0f,
-         X / 2.0f,     Y,  -Z / 2.0f,
+        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
     };
-
-
-
-    unsigned int VBO, cubeVAO;
-    glGenVertexArrays(1, &cubeVAO);
-    glGenBuffers(1, &VBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindVertexArray(cubeVAO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
 
     unsigned int lineVBO, lineVAO;
     glGenVertexArrays(1, &lineVAO);
@@ -303,7 +212,7 @@ int main()
         shader.setMat4("model", model);
         glDrawArrays(GL_LINES, 0, 24);
 
-        glBindTexture(GL_TEXTURE_2D, blueTexture);
+        // For navigating where +x/+z is
         model = glm::translate(model, glm::vec3(5.0f, 0.0f, 5.0f));
         shader.setMat4("model", model);
         whiteBlock.draw();
@@ -318,44 +227,38 @@ int main()
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }*/
 
-        float GAME_SPEED = 1;
+        float GAME_SPEED = 2;
+        int tick = 0;
         if (gameActive)
         {
-            int tick = (int) (currFrameTime * GAME_SPEED) - tickOffset;
+            tick = currFrameTime * GAME_SPEED - tickOffset;
+            byIndex = B_OFFSET_Y - tick; // Move falling block down by 1 each tick
     
             model = glm::mat4(1.0f);
-            glm::vec3 pos = glm::vec3(blockOffsetX, Y - tick - 0.5, blockOffsetZ);
+            glm::vec3 pos = glm::vec3(G_OFFSET_X + bxIndex, G_OFFSET_Y + byIndex, G_OFFSET_Z + bzIndex);
             model = glm::translate(model, pos);
             shader.setMat4("model", model);
 
-            // Real coordinates converted to indices for positions array
-            int xIndex = pos.x + xOffset;
-            int yIndex = pos.y + yOffset;
-            int zIndex = pos.z + zOffset;
 
             // Falling/controlled block collided with static block => lock it in place (one block above the block it collided with)
-            if (yIndex < 0 || positions[xIndex][yIndex][zIndex])
+            if (byIndex < 0 || positions[bxIndex][byIndex][bzIndex])
             {
-                positions[xIndex][yIndex + 1][zIndex] = true;
+                positions[bxIndex][byIndex + 1][bzIndex] = true;
 
                 // Last controlled block got locked in place at the top => GAME OVER
-                if (positions[xIndex][Y - 1][zIndex])
+                if (positions[bxIndex][Y - 1][bzIndex])
                 {
                     gameActive = false;
                     color = glm::vec3(0.8f, 0.0f, 0.0f);
                 }
                 else
                 {
-                    rowOccupancyStack[yIndex + 1]++;
-
-                    std::cout << "Count per row:" << std::endl;
-                    for (int i = 0; i < Y; i++)
-                        std::cout << "\t#" << i + 1 << "\t" << rowOccupancyStack[i] << std::endl;
+                    rowOccupancyStack[byIndex + 1]++;
 
                     // Row in which the last block just got locked in place is filled up => empty it and move everything above it down
-                    if (rowOccupancyStack[yIndex + 1] == X * Z)
+                    if (rowOccupancyStack[byIndex + 1] == X * Z)
                     {
-                        for (int j = yIndex + 1; j < Y - 1; j++)
+                        for (int j = byIndex + 1; j < Y - 1; j++)
                         {
                             rowOccupancyStack[j] = rowOccupancyStack[j + 1]; // this won't update the top row, but it should still always be 0 because otherwise it's game over
                             
@@ -364,7 +267,7 @@ int main()
                                     positions[i][j][k] = positions[i][j + 1][k];
                         }
 
-                        std::cout << "!!! Cleared row " << yIndex + 2 << " !!!" << std::endl; 
+                        std::cout << "!!! Cleared row " << byIndex + 2 << " !!!" << std::endl; 
                     }
                 }
                 
@@ -373,19 +276,20 @@ int main()
             else
                 coloredCube.draw();
         }
+        
 
         // Draw occupied blocks
         // Must be drawn after the falling block, otherwise a visual stutter occurs
-        for (unsigned int i = 0; i < X; i++)
+        for (int i = 0; i < X; i++)
         {
-            for (unsigned int j = 0; j < Y; j++)
+            for (int j = 0; j < Y; j++)
             {
-                for (unsigned int k = 0; k < Z; k++)
+                for (int k = 0; k < Z; k++)
                 {
                     if (positions[i][j][k])
                     {
                         glm::mat4 model(1.0f);
-                        model = glm::translate(model, glm::vec3(((int)i - xOffset), (j - yOffset), ((int)k - zOffset))); // kako bi (0,0,0) bilo točno u sredini XxZ grida
+                        model = glm::translate(model, glm::vec3(i + G_OFFSET_X, j + G_OFFSET_Y, k + G_OFFSET_Z)); // kako bi (0,0,0) bilo točno u sredini XxZ grida
                         shader.setMat4("model", model);
                         whiteBlock.draw();
                     }
@@ -402,8 +306,10 @@ int main()
     // izbrisat buffere??
         
     shader.del();
-    glDeleteVertexArrays(1, &cubeVAO);
-    glDeleteBuffers(1, &VBO);
+    whiteBlock.del();
+    coloredCube.del();
+    glDeleteVertexArrays(1, &lineVAO);
+    glDeleteBuffers(1, &lineVBO);
 
 
     glfwTerminate();
@@ -441,14 +347,14 @@ void processInput(GLFWwindow* window)
     // moveX/Z variables make is so the user has to click individually for each movement (you can't hold to move)
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS && !moveX)
     {
-        if (blockOffsetX + 1 <= xOffset)
-            blockOffsetX += 1;
+        if (bxIndex + bX < X)
+            bxIndex += 1;
         moveX = true;
     }
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS && !moveX)
     {
-        if (blockOffsetX - 1 >= -xOffset)
-            blockOffsetX -= 1;
+        if (bxIndex > 0)
+            bxIndex -= 1;
         moveX = true;
     }
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_RELEASE)
@@ -458,14 +364,14 @@ void processInput(GLFWwindow* window)
 
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS && !moveZ)      //     +----- +x (right)
     {                                                                       //     |
-        if (blockOffsetZ + 1 <= zOffset)                               //     |
-            blockOffsetZ += 1;                                              //    +z (down)
+        if (bzIndex + bZ < Z)                               //     |
+            bzIndex += 1;                                              //    +z (down)
         moveZ = true;
     }
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && !moveZ)
     {
-        if (blockOffsetZ - 1 >= -zOffset)
-            blockOffsetZ -= 1;
+        if (bzIndex > 0)
+            bzIndex -= 1;
         moveZ = true;
     }
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_RELEASE)
