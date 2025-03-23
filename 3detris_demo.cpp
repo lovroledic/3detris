@@ -29,30 +29,28 @@ unsigned int currScrHeight = SCREEN_HEIGHT;
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
 
-
+// Game settings
+float GAME_SPEED = 1;
 // Game area dimensions
-//const unsigned int X = 8, Y = 12, Z = 8;
-const int X = 6, Y = 8, Z = 6;
-bool moveX = false;
-bool moveZ = false;
-
+const unsigned int G_X = 8, G_Y = 12, G_Z = 8;
 // Game area offset (relative to (0,0,0))
 const float G_OFFSET_X = 0;
 const float G_OFFSET_Y = 0;
 const float G_OFFSET_Z = 0;
 // Default player-controlled block area index offset
-const int B_OFFSET_X = X / 2;
-const int B_OFFSET_Y = Y;
-const int B_OFFSET_Z = Z / 2;
+const int B_OFFSET_X = G_X / 2;
+const int B_OFFSET_Y = G_Y;
+const int B_OFFSET_Z = G_Z / 2;
+// Current player-controlled block area index offset
 int bxIndex = B_OFFSET_X;
 int byIndex = B_OFFSET_Y;
 int bzIndex = B_OFFSET_Z;
-const int bX = 1;
-const int bY = 1;
-const int bZ = 1;
+// For preventing continuous movement when holding arrow keys
+bool moveX = false;
+bool moveZ = false;
 
 
-Camera camera(glm::vec3(X / 2.0f, Y + 4, Z * 2));
+Camera camera(glm::vec3(G_X / 2.0f, G_Y + 4, G_Z * 2));
 float lastX = SCREEN_WIDTH  / 2;
 float lastY = SCREEN_HEIGHT / 2;
 bool firstMouse = true;
@@ -117,13 +115,36 @@ CustomBlock stick = {
 CustomBlock weird = {
     .positions = {
         { // Y = 0
+            { 0, 1, 0 },
+            { 1, 1, 0 },
+            { 0, 0, 0 },
+        },
+        { // Y = 1
             { 0, 0, 0 },
             { 0, 1, 0 },
             { 0, 0, 0 },
         },
+        { // Y = 2
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+        },
+    },
+    .X = 2,
+    .Y = 2,
+    .Z = 2,
+    .rowCount = { 3, 1, 0 }
+};
+CustomBlock weirdReverse = {
+    .positions = {
+        { // Y = 0
+            { 1, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+        },
         { // Y = 1
-            { 0, 1, 0 },
             { 1, 1, 0 },
+            { 1, 0, 0 },
             { 0, 0, 0 },
         },
         { // Y = 2
@@ -140,6 +161,8 @@ CustomBlock weird = {
 
 int main()
 {
+    srand(time(nullptr));
+
     // glfw: initialize and configure
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -147,7 +170,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // glfw: window creation
-    GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Ime prozora wowww", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "3Detris", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -178,54 +201,52 @@ int main()
     Shader shader("shaders/my_shader.vert", "shaders/my_shader.frag");
 
 
+    // Game area border
     float borderVertices[] = {
         // bottom square
             G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
-            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
 
-            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
-        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
 
-        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
-        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
-        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
             G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
         // top square
-            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
-            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
 
-            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
-        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
 
-        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
-        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
-        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
-            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
         // vertical lines connecting bottom and top square
             G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
-            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
 
-            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
-            G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
+            G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
 
-        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
-        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f, Z + G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f, G_Z + G_OFFSET_Z - 0.5f,
 
-        X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
-        X + G_OFFSET_X - 0.5f, Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f,     G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
+        G_X + G_OFFSET_X - 0.5f, G_Y + G_OFFSET_Y - 0.5f,     G_OFFSET_Z - 0.5f,
     };
-
     unsigned int lineVBO, lineVAO;
     glGenVertexArrays(1, &lineVAO);
     glGenBuffers(1, &lineVBO);
-
     glBindBuffer(GL_ARRAY_BUFFER, lineVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(borderVertices), borderVertices, GL_STATIC_DRAW);
-
     glBindVertexArray(lineVAO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -236,13 +257,8 @@ int main()
     GLuint blueTexture = loadTexture("resources/textures/colors/blue.png");
     GLuint whiteTexture = loadTexture("resources/textures/colors/white.png");
 
-    bool positions[X][Y][Z] = { false };
-    int rowOccupancyStack[Y] = { 0 }; // arr[x] represents the number of occupied spaces in a row; max X*Z at which point that row is to be freed
-
-    /*const float gravTickLength = 1.0f;
-    unsigned int gravTickCount = 0;
-    float lastGravTick = 0.0f;
-    float secsFromLastTick = 0.0f;*/
+    bool positions[G_X][G_Y][G_Z] = { false };
+    int rowOccupancyStack[G_Y] = { 0 }; // arr[x] represents the number of occupied spaces in a row; max G_X*Z at which point that row is to be freed
 
 
     shader.use();
@@ -256,9 +272,9 @@ int main()
     Model whiteBlock("resources/objects/white-block/white-block.obj");
     int tickOffset = 0;
     bool gameActive = true;
-    glm::vec3 color = glm::vec3(0.8, 0.8, 0.8);
+    glm::vec3 color = glm::vec3(0.6f, 0.6f, 0.6f);
 
-    //bool shouldChangeBlock = true;
+    bool shouldChangeBlock = true;
     customBlock = cube;
 
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -282,9 +298,6 @@ int main()
         // Draw
         shader.use();
         shader.setVec3("viewPos", camera.Position);
-        
-        //glm::vec3 dirLightDir(sin(currFrameTime) / 2, 1.0f, cos(currFrameTime) / 2);
-        //shader.setVec3("dirLight.direction", dirLightDir);
 
         glm::mat4 view = camera.getViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)currScrWidth / currScrHeight, 0.1f, 100.0f);
@@ -313,16 +326,21 @@ int main()
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }*/
 
-        float GAME_SPEED = 2;
         int tick = 0;
-        /*if (shouldChangeBlock)
+        if (shouldChangeBlock)
         {
-            int r = rand() % 3;
+            int r = rand() % 4;
+            
             if (r == 0) customBlock = cube;
             else if (r == 1) customBlock = stick;
-            else customBlock = weird;
+            else if (r == 2) customBlock = weird;
+            else customBlock = weirdReverse;
+
             shouldChangeBlock = false;
-        }*/
+
+            bxIndex = B_OFFSET_X;
+            bzIndex = B_OFFSET_Z;
+        }
 
         if (gameActive)
         {
@@ -360,7 +378,7 @@ int main()
                 for (int i = 0; i < customBlock.X; i++)
                     for (int k = 0; k < customBlock.Z; k++)
                         // Last controlled block got locked in place at the top => GAME OVER
-                        if (positions[bxIndex + i][Y - 1][bzIndex + k])
+                        if (positions[bxIndex + i][G_Y - 1][bzIndex + k])
                         {
                             gameActive = false;
                             color = glm::vec3(0.8f, 0.0f, 0.0f);
@@ -371,19 +389,19 @@ int main()
                                 rowOccupancyStack[byIndex + 1 + j] += customBlock.rowCount[j];
                             
                             std::cout << "Count per row:" << std::endl;
-                            for (int j = 0; j < Y; j++)
+                            for (int j = 0; j < G_Y; j++)
                                 std::cout << "\trow #" << j + 1 << "\t" << rowOccupancyStack[j] << std::endl; 
 
                             // Rows in which the last block just got locked in place got filled up => empty them and move everything above them down
                             for (int j = 0; j < customBlock.Y; j++)
-                                if (rowOccupancyStack[byIndex + 1 + j] == X * Z)
+                                if (rowOccupancyStack[byIndex + 1 + j] == G_X * G_Z)
                                 {
-                                    for (int jj = byIndex + 1; jj < Y - 1; jj++)
+                                    for (int jj = byIndex + 1; jj < G_Y - 1; jj++)
                                     {
                                         rowOccupancyStack[jj] = rowOccupancyStack[jj + 1]; // this won't update the top row, but it should still always be 0 because otherwise it's game over
                                         
-                                        for (int i = 0; i < X; i++)
-                                            for (int k = 0; k < Z; k++)
+                                        for (int i = 0; i < G_X; i++)
+                                            for (int k = 0; k < G_Z; k++)
                                                 positions[i][jj][k] = positions[i][jj + 1][k];
                                     }
 
@@ -393,7 +411,7 @@ int main()
                         }
                 
                 tickOffset += tick;
-                //shouldChangeBlock = true;
+                shouldChangeBlock = true;
             }
             // No collision => draw next frame of falling block
             else
@@ -436,13 +454,13 @@ int main()
                     rowOccupancyStack[byIndex + 1]++;
 
                     // Row in which the last block just got locked in place is filled up => empty it and move everything above it down
-                    if (rowOccupancyStack[byIndex + 1] == X * Z)
+                    if (rowOccupancyStack[byIndex + 1] == G_X * Z)
                     {
                         for (int j = byIndex + 1; j < Y - 1; j++)
                         {
                             rowOccupancyStack[j] = rowOccupancyStack[j + 1]; // this won't update the top row, but it should still always be 0 because otherwise it's game over
                             
-                            for (int i = 0; i < X; i++)
+                            for (int i = 0; i < G_X; i++)
                                 for (int k = 0; k < Z; k++)
                                     positions[i][j][k] = positions[i][j + 1][k];
                         }
@@ -461,11 +479,11 @@ int main()
 
         // Draw occupied blocks
         // Must be drawn after the falling block, otherwise a visual stutter occurs
-        for (int i = 0; i < X; i++)
+        for (int i = 0; i < G_X; i++)
         {
-            for (int j = 0; j < Y; j++)
+            for (int j = 0; j < G_Y; j++)
             {
-                for (int k = 0; k < Z; k++)
+                for (int k = 0; k < G_Z; k++)
                 {
                     if (positions[i][j][k])
                     {
@@ -528,7 +546,7 @@ void processInput(GLFWwindow* window)
     // moveX/Z variables make is so the user has to click individually for each movement (you can't hold to move)
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS && !moveX)
     {
-        if (bxIndex + customBlock.X < X)
+        if (bxIndex + customBlock.X < G_X)
             bxIndex += 1;
         moveX = true;
     }
@@ -545,7 +563,7 @@ void processInput(GLFWwindow* window)
 
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS && !moveZ)      //     +----- +x (right)
     {                                                                       //     |
-        if (bzIndex + customBlock.Z < Z)                               //     |
+        if (bzIndex + customBlock.Z < G_Z)                               //     |
             bzIndex += 1;                                              //    +z (down)
         moveZ = true;
     }
