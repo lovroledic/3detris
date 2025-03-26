@@ -38,14 +38,10 @@ const unsigned int G_X = 8, G_Y = 12, G_Z = 8;
 const float G_OFFSET_X = 0;
 const float G_OFFSET_Y = 0;
 const float G_OFFSET_Z = 0;
-// Default player-controlled block area index offset
-const int B_OFFSET_X = G_X / 2;
-const int B_OFFSET_Y = G_Y;
-const int B_OFFSET_Z = G_Z / 2;
 // Current player-controlled block area index offset
-int bxIndex = B_OFFSET_X;
-int byIndex = B_OFFSET_Y;
-int bzIndex = B_OFFSET_Z;
+int bxIndex;
+int byIndex;
+int bzIndex;
 // For preventing continuous movement when holding arrow keys
 bool moveX = false;
 bool moveZ = false;
@@ -354,14 +350,14 @@ int main()
 
             shouldChangeBlock = false;
 
-            bxIndex = B_OFFSET_X;
-            bzIndex = B_OFFSET_Z;
+            bxIndex = (G_X - customBlock.X) / 2;
+            bzIndex = (G_Z - customBlock.Z) / 2;
         }
 
         if (gameActive)
         {
             tick = currFrameTime * GAME_SPEED - tickOffset;
-            byIndex = B_OFFSET_Y - customBlock.Y - tick; // Move falling block down by 1 each tick
+            byIndex = G_Y - customBlock.Y - tick; // Move falling block down by 1 each tick
     
             model = glm::mat4(1.0f);
             glm::vec3 pos = glm::vec3(G_OFFSET_X + bxIndex, G_OFFSET_Y + byIndex, G_OFFSET_Z + bzIndex);
