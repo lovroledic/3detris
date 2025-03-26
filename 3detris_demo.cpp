@@ -11,6 +11,7 @@
 #include "shader.hpp"
 #include "3detris_camera.hpp"
 #include "model.hpp"
+#include "block.hpp"
 
 #include <iostream>
 #include <cmath>
@@ -252,12 +253,15 @@ int main()
     glEnableVertexAttribArray(0);
 
 
+    GLuint whiteTexture = loadTexture("resources/textures/colors/white.png");
     GLuint redTexture = loadTexture("resources/textures/colors/red.png");
     GLuint greenTexture = loadTexture("resources/textures/colors/green.png");
     GLuint blueTexture = loadTexture("resources/textures/colors/blue.png");
-    GLuint whiteTexture = loadTexture("resources/textures/colors/white.png");
+    GLuint cyanTexture = loadTexture("resources/textures/colors/cyan.png");
+    GLuint magentaTexture = loadTexture("resources/textures/colors/magenta.png");
+    GLuint yellowTexture = loadTexture("resources/textures/colors/yellow.png");
 
-    bool positions[G_X][G_Y][G_Z] = { false };
+    GLuint positions[G_X][G_Y][G_Z] = { 0 };
     int rowOccupancyStack[G_Y] = { 0 }; // arr[x] represents the number of occupied spaces in a row; max G_X*Z at which point that row is to be freed
 
 
@@ -268,13 +272,16 @@ int main()
     shader.setVec3("dirLight.diffuse", 0.6f, 0.6f, 0.6f);
     shader.setVec3("dirLight.specular", 0.0f, 0.0f, 0.0f);
 
-    Model coloredCube("resources/objects/colored-cube/colored-cube.obj");
+    Block block("resources/objects/white-block/white-block.obj", whiteTexture);
+    Model coloredBlock("resources/objects/colored-cube/colored-cube.obj");
     Model whiteBlock("resources/objects/white-block/white-block.obj");
+
     int tickOffset = 0;
     bool gameActive = true;
     glm::vec3 color = glm::vec3(0.6f, 0.6f, 0.6f);
 
     bool shouldChangeBlock = true;
+    GLuint currColor = 0;
     customBlock = cube;
 
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -329,12 +336,21 @@ int main()
         int tick = 0;
         if (shouldChangeBlock)
         {
-            int r = rand() % 4;
+            int rb = rand() % 4;
+            int rc = rand() % 7;
             
-            if (r == 0) customBlock = cube;
-            else if (r == 1) customBlock = stick;
-            else if (r == 2) customBlock = weird;
+            if (rb == 0) customBlock = cube;
+            else if (rb == 1) customBlock = stick;
+            else if (rb == 2) customBlock = weird;
             else customBlock = weirdReverse;
+
+            if (rc == 0) currColor = whiteTexture;
+            else if (rc == 1) currColor = redTexture;
+            else if (rc == 2) currColor = greenTexture;
+            else if (rc == 3) currColor = blueTexture;
+            else if (rc == 4) currColor = cyanTexture;
+            else if (rc == 5) currColor = magentaTexture;
+            else currColor = yellowTexture;
 
             shouldChangeBlock = false;
 
@@ -349,8 +365,6 @@ int main()
     
             model = glm::mat4(1.0f);
             glm::vec3 pos = glm::vec3(G_OFFSET_X + bxIndex, G_OFFSET_Y + byIndex, G_OFFSET_Z + bzIndex);
-            model = glm::translate(model, pos);
-            shader.setMat4("model", model);
 
 
             bool collisionDetected = false;
@@ -373,42 +387,49 @@ int main()
                     for (int i = 0; i < customBlock.X; i++)
                         for (int k = 0; k < customBlock.Z; k++)
                             if (customBlock.positions[j][i][k])
-                                positions[bxIndex + i][byIndex + j + 1][bzIndex + k] = true;
+                                //positions[bxIndex + i][byIndex + j + 1][bzIndex + k] = true;
+                                positions[bxIndex + i][byIndex + j + 1][bzIndex + k] = currColor;
 
+                // Check if game over
                 for (int i = 0; i < customBlock.X; i++)
+                {
                     for (int k = 0; k < customBlock.Z; k++)
+                    {
                         // Last controlled block got locked in place at the top => GAME OVER
                         if (positions[bxIndex + i][G_Y - 1][bzIndex + k])
                         {
                             gameActive = false;
                             color = glm::vec3(0.8f, 0.0f, 0.0f);
                         }
-                        if (gameActive)
+                    }
+                }
+                
+                if (gameActive)
+                {
+                    for (int j = 0; j < customBlock.Y; j++)
+                        rowOccupancyStack[byIndex + 1 + j] += customBlock.rowCount[j];
+                    
+                    /* std::cout << "Count per row:" << std::endl;
+                    for (int j = 0; j < G_Y; j++)
+                        std::cout << "\trow #" << j + 1 << "\t" << rowOccupancyStack[j] << std::endl;  */
+
+                    // Rows in which the last block just got locked in place got filled up => empty them and move everything above them down
+                    for (int j = 0; j < customBlock.Y; j++)
+                        if (rowOccupancyStack[byIndex + 1 + j] == G_X * G_Z)
                         {
-                            for (int j = 0; j < customBlock.Y; j++)
-                                rowOccupancyStack[byIndex + 1 + j] += customBlock.rowCount[j];
-                            
-                            std::cout << "Count per row:" << std::endl;
-                            for (int j = 0; j < G_Y; j++)
-                                std::cout << "\trow #" << j + 1 << "\t" << rowOccupancyStack[j] << std::endl; 
+                            for (int jj = byIndex + 1; jj < G_Y - 1; jj++)
+                            {
+                                rowOccupancyStack[jj] = rowOccupancyStack[jj + 1]; // this won't update the top row, but it should still always be 0 because otherwise it's game over
+                                
+                                for (int i = 0; i < G_X; i++)
+                                    for (int k = 0; k < G_Z; k++)
+                                        positions[i][jj][k] = positions[i][jj + 1][k];
+                            }
 
-                            // Rows in which the last block just got locked in place got filled up => empty them and move everything above them down
-                            for (int j = 0; j < customBlock.Y; j++)
-                                if (rowOccupancyStack[byIndex + 1 + j] == G_X * G_Z)
-                                {
-                                    for (int jj = byIndex + 1; jj < G_Y - 1; jj++)
-                                    {
-                                        rowOccupancyStack[jj] = rowOccupancyStack[jj + 1]; // this won't update the top row, but it should still always be 0 because otherwise it's game over
-                                        
-                                        for (int i = 0; i < G_X; i++)
-                                            for (int k = 0; k < G_Z; k++)
-                                                positions[i][jj][k] = positions[i][jj + 1][k];
-                                    }
-
-                                    std::cout << "!!! Cleared row " << byIndex + 2 << " !!!" << std::endl;
-                                    j--;
-                                }
+                            std::cout << "!!! Cleared row " << byIndex + 2 << " !!!" << std::endl;
+                            j--; // Everything above the cleared row got shifted down -> check the same row again
                         }
+                }
                 
                 tickOffset += tick;
                 shouldChangeBlock = true;
@@ -423,58 +444,12 @@ int main()
                             {
                                 model = glm::translate(glm::mat4(1.0f), glm::vec3(pos.x + i, pos.y + j, pos.z + k));
                                 shader.setMat4("model", model);
-                                coloredCube.draw();
+                                //coloredBlock.draw();
+                                block.textureID = currColor;
+                                block.draw();
                             }
             }
         }
-        /* if (gameActive)
-        {
-            tick = currFrameTime * GAME_SPEED - tickOffset;
-            byIndex = B_OFFSET_Y - tick; // Move falling block down by 1 each tick
-    
-            model = glm::mat4(1.0f);
-            glm::vec3 pos = glm::vec3(G_OFFSET_X + bxIndex, G_OFFSET_Y + byIndex, G_OFFSET_Z + bzIndex);
-            model = glm::translate(model, pos);
-            shader.setMat4("model", model);
-
-
-            // Falling/controlled block collided with static block => lock it in place (one block above the block it collided with)
-            if (byIndex < 0 || positions[bxIndex][byIndex][bzIndex])
-            {
-                positions[bxIndex][byIndex + 1][bzIndex] = true;
-
-                // Last controlled block got locked in place at the top => GAME OVER
-                if (positions[bxIndex][Y - 1][bzIndex])
-                {
-                    gameActive = false;
-                    color = glm::vec3(0.8f, 0.0f, 0.0f);
-                }
-                else
-                {
-                    rowOccupancyStack[byIndex + 1]++;
-
-                    // Row in which the last block just got locked in place is filled up => empty it and move everything above it down
-                    if (rowOccupancyStack[byIndex + 1] == G_X * Z)
-                    {
-                        for (int j = byIndex + 1; j < Y - 1; j++)
-                        {
-                            rowOccupancyStack[j] = rowOccupancyStack[j + 1]; // this won't update the top row, but it should still always be 0 because otherwise it's game over
-                            
-                            for (int i = 0; i < G_X; i++)
-                                for (int k = 0; k < Z; k++)
-                                    positions[i][j][k] = positions[i][j + 1][k];
-                        }
-
-                        std::cout << "!!! Cleared row " << byIndex + 2 << " !!!" << std::endl; 
-                    }
-                }
-                
-                tickOffset += tick;
-            }
-            else
-                coloredCube.draw();
-        } */
-
         
 
         // Draw occupied blocks
@@ -490,7 +465,9 @@ int main()
                         glm::mat4 model(1.0f);
                         model = glm::translate(model, glm::vec3(i + G_OFFSET_X, j + G_OFFSET_Y, k + G_OFFSET_Z)); // kako bi (0,0,0) bilo točno u sredini XxZ grida
                         shader.setMat4("model", model);
-                        whiteBlock.draw();
+                        block.textureID = positions[i][j][k];
+                        block.draw();
+                        //whiteBlock.draw();
                     }
                 }
             }
@@ -506,7 +483,7 @@ int main()
         
     shader.del();
     whiteBlock.del();
-    coloredCube.del();
+    coloredBlock.del();
     glDeleteVertexArrays(1, &lineVAO);
     glDeleteBuffers(1, &lineVBO);
 
@@ -543,7 +520,9 @@ void processInput(GLFWwindow* window)
 
 
     // Handle block control
-    // moveX/Z variables make is so the user has to click individually for each movement (you can't hold to move)
+    // moveX/Z variables make it so the user has to click individually for each movement (you can't hold to move)
+
+    // TODO: should be unable to move block into another block
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS && !moveX)
     {
         if (bxIndex + customBlock.X < G_X)
@@ -563,8 +542,8 @@ void processInput(GLFWwindow* window)
 
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS && !moveZ)      //     +----- +x (right)
     {                                                                       //     |
-        if (bzIndex + customBlock.Z < G_Z)                               //     |
-            bzIndex += 1;                                              //    +z (down)
+        if (bzIndex + customBlock.Z < G_Z)                                  //     |
+            bzIndex += 1;                                                   //    +z (down)
         moveZ = true;
     }
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && !moveZ)
