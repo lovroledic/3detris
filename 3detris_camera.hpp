@@ -15,9 +15,9 @@ enum Camera_Movement {
 };
 
 // Default camera values            //                          +y     
-const float YAW         = -90.0f;	// towards +z               |  pitch (+x -> +y)
-const float PITCH       = -30.0f;//-45.0f;	// slightly down            |  
-const float SPEED       =   5.0f;	//	                    	.------- +x
+const float YAW         =  180.0f;	// towards +z               |  pitch (+x -> +y)
+const float PITCH       = -60.0f;	// slightly down            |  
+const float SPEED       =   1.0f;	//	                    	.------- +x
 const float SENSITIVITY =   0.1f;	// 	                       /  yaw (+x -> +z)
 const float ZOOM        =  60.0f;	//                        +z
 
@@ -25,6 +25,8 @@ class Camera
 {
 public:
     glm::vec3 Position;
+    glm::vec3 Center; //
+    glm::vec3 RelPos; //
     glm::vec3 Front;
     glm::vec3 Up;
     glm::vec3 Right;
@@ -35,14 +37,25 @@ public:
     float MovementSpeed;
     float MouseSensitivity;
     float Zoom;
+    float Distance; //
 
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH)
-        : Front(glm::vec3(0.0f, 0.0f, -1.0f)), WorldFront(Front), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), float yaw = YAW, float pitch = PITCH)
+        : Front(glm::vec3(0.0f, 0.0f, -1.0f)), Up(glm::vec3(0.0f, 1.0f, 0.0f)), WorldFront(Front), WorldUp(Up), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
     {
         Position = position;
-        WorldUp = up;
         Yaw = yaw;
         Pitch = pitch;
+    }
+
+    Camera(glm::vec3 center, glm::vec3 relPos, float dist, float yaw = YAW, float pitch = PITCH)
+        : Front(glm::vec3(0.0f, 0.0f, -1.0f)), Up(glm::vec3(0.0f, 1.0f, 0.0f)), WorldFront(Front), WorldUp(Up), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+    {
+        Position = center + dist * relPos;
+        Center = center;
+        RelPos = relPos;
+        Yaw = yaw;
+        Pitch = pitch;
+        Distance = dist;
     }
 
     // Returns the view matrix calculated using Euler angles and the LookAt matrix
@@ -55,28 +68,43 @@ public:
     void processKeyboard(Camera_Movement direction, float deltaTime)
     {
         float velocity = MovementSpeed * deltaTime;
+        glm::vec3 clockwise = glm::normalize(glm::cross(RelPos, WorldUp));
 
-        if (direction == FORWARD)
+        /* if (direction == FORWARD);
             Position += WorldFront * velocity;
-        if (direction == BACKWARD)
-            Position -= WorldFront * velocity;
+        if (direction == BACKWARD);
+            Position -= WorldFront * velocity; */
         if (direction == LEFT)
-            Position -= Right * velocity;
+        {
+            RelPos += clockwise * velocity;
+            RelPos = glm::normalize(RelPos);
+            Position = Center + Distance * RelPos;
+        }
         if (direction == RIGHT)
-            Position += Right * velocity;
+        {
+            RelPos -= clockwise * velocity;
+            RelPos = glm::normalize(RelPos);
+            Position = Center + Distance * RelPos;
+        }
         if (direction == DOWN)
             Position -= WorldUp * velocity;
         if (direction == UP)
             Position += WorldUp * velocity;
+
+        float dot = glm::dot(glm::normalize(glm::vec3(-1.0f, 0.0f, 0.0f)), glm::normalize(RelPos));
+        float deg = glm::degrees(glm::acos(dot));
+        Yaw = RelPos.z < 0 ? deg : 360 - deg;
+
+        updateCameraVectors();
     }
 
     // Processes input received from a mouse input system
     void processMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true)
     {
-        xoffset *= MouseSensitivity;
+        /* //xoffset *= MouseSensitivity;
         yoffset *= MouseSensitivity;
 
-        Yaw += xoffset;
+        //Yaw += xoffset;
         Pitch += yoffset;
 
         if (constrainPitch)
@@ -87,7 +115,7 @@ public:
                 Pitch = -89.0f;
         }
 
-        updateCameraVectors();
+        updateCameraVectors(); */
     }
 
     void processMouseScroll(float yoffset)
