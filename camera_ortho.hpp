@@ -56,6 +56,8 @@ public:
         Yaw = yaw;
         Pitch = pitch;
         Distance = dist;
+
+        // TODO: ispravi smjer u kojem kamera gleda prije pomicanja
     }
 
     // Returns the view matrix calculated using Euler angles and the LookAt matrix
