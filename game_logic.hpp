@@ -1,3 +1,6 @@
+#ifndef GAME_H
+#define GAME_H
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -15,7 +18,6 @@
 
 
 Block block;
-std::vector<GLuint> textures;
 
 
 // PLAYER
@@ -24,15 +26,18 @@ class Player
 {
     public:
         Shape shape;
-        GLuint texture;
+        int materialIndex;
+        glm::ivec3 prevOffset;
         glm::ivec3 offset; // offset within Area
         Axis rotationAxis = AXIS_Y;
 
 
         void setShape(int index) { shape = shapes[index]; }
-        void setColor(GLuint texID) { texture = texID; }
+        //void setColor(GLuint texID) { texture = texID; }
+        void setMaterial(int matIndex) { materialIndex = matIndex; };
 
         void render(Shader &);
+        void renderPreview(Shader &, int);
 
     private:
         
@@ -48,19 +53,47 @@ void Player::render(Shader &shader)
                 {
                     model = glm::translate(glm::mat4(1.0f), glm::vec3(offset.x + i, offset.y + j, offset.z + k));
                     shader.setMat4("model", model);
-                    block.textureID = texture;
+                    block.material = materials[materialIndex - 1];
+                    shader.setFloat("material.shininess", block.material.Ns);
                     block.draw();
+                }
+}
+
+// Render a preview of where the block would be positioned if it were dropped
+void Player::renderPreview(Shader &shader, int offsetY)
+{
+    // Player is already positioned where it can drop the lowest
+    if (offsetY == 0)
+        return;
+
+    glm::mat4 model;
+    for (int i = 0; i < SHAPE_WIDTH; i++)
+        for (int j = 0; j < SHAPE_WIDTH; j++)
+            for (int k = 0; k < SHAPE_WIDTH; k++)
+                if (shape.positions[i][j][k])
+                {
+                    model = glm::translate(glm::mat4(1.0f), glm::vec3(offset.x + i, offset.y + j - offsetY, offset.z + k));
+                    shader.setMat4("model", model);
+                    block.material = materials[materialIndex - 1];
+                    shader.setFloat("material.shininess", block.material.Ns);
+
+                    shader.setFloat("alpha", 0.2f);
+                    block.draw();
+                    shader.setFloat("alpha", 1.0f);
                 }
 }
 
 
 // AREA
+#define AREA_WIDTH 8
+#define AREA_HEIGHT 16
 
 class Area
 {
     public:
-        static const int WIDTH_X = 8, HEIGHT = 16, WIDTH_Z = 8;
-        GLuint positions[WIDTH_X][HEIGHT][WIDTH_Z] = { 0 };
+        static const int WIDTH = AREA_WIDTH;
+        static const int HEIGHT = AREA_HEIGHT;
+        int positions[WIDTH][HEIGHT][WIDTH] = { 0 };
         int countPerRow[HEIGHT];
 
 
@@ -85,14 +118,15 @@ void Area::renderBorder(Shader &shader)
 void Area::renderStaticBlocks(Shader &shader)
 {
     glm::mat4 model;
-    for (int i = 0; i < WIDTH_X; i++)
+    for (int i = 0; i < WIDTH; i++)
         for (int j = 0; j < HEIGHT; j++)
-            for (int k = 0; k < WIDTH_Z; k++)
+            for (int k = 0; k < WIDTH; k++)
                 if (positions[i][j][k])
                 {
                     model = glm::translate(glm::mat4(1.0f), glm::vec3(i, j, k));
                     shader.setMat4("model", model);
-                    block.textureID = positions[i][j][k];
+                    block.material = materials[positions[i][j][k] - 1];
+                    shader.setFloat("material.shininess", block.material.Ns);
                     block.draw();
                 }
 }
@@ -103,31 +137,31 @@ void Area::initBorder()
     float borderVertices[] = {
         // bottom square
                 - 0.5f,         - 0.5f,          - 0.5f,
-                - 0.5f,         - 0.5f,  WIDTH_Z - 0.5f,
-                - 0.5f,         - 0.5f,  WIDTH_Z - 0.5f,
-        WIDTH_X - 0.5f,         - 0.5f,  WIDTH_Z - 0.5f,
-        WIDTH_X - 0.5f,         - 0.5f,  WIDTH_Z - 0.5f,
-        WIDTH_X - 0.5f,         - 0.5f,          - 0.5f,
-        WIDTH_X - 0.5f,         - 0.5f,          - 0.5f,
+                - 0.5f,         - 0.5f,  WIDTH - 0.5f,
+                - 0.5f,         - 0.5f,  WIDTH - 0.5f,
+        WIDTH - 0.5f,         - 0.5f,  WIDTH - 0.5f,
+        WIDTH - 0.5f,         - 0.5f,  WIDTH - 0.5f,
+        WIDTH - 0.5f,         - 0.5f,          - 0.5f,
+        WIDTH - 0.5f,         - 0.5f,          - 0.5f,
                 - 0.5f,         - 0.5f,          - 0.5f,
         // top square 
                 - 0.5f,  HEIGHT - 0.5f,          - 0.5f,
-                - 0.5f,  HEIGHT - 0.5f,  WIDTH_Z - 0.5f,
-                - 0.5f,  HEIGHT - 0.5f,  WIDTH_Z - 0.5f,
-        WIDTH_X - 0.5f,  HEIGHT - 0.5f,  WIDTH_Z - 0.5f,
-        WIDTH_X - 0.5f,  HEIGHT - 0.5f,  WIDTH_Z - 0.5f,
-        WIDTH_X - 0.5f,  HEIGHT - 0.5f,          - 0.5f,
-        WIDTH_X - 0.5f,  HEIGHT - 0.5f,          - 0.5f,
+                - 0.5f,  HEIGHT - 0.5f,  WIDTH - 0.5f,
+                - 0.5f,  HEIGHT - 0.5f,  WIDTH - 0.5f,
+        WIDTH - 0.5f,  HEIGHT - 0.5f,  WIDTH - 0.5f,
+        WIDTH - 0.5f,  HEIGHT - 0.5f,  WIDTH - 0.5f,
+        WIDTH - 0.5f,  HEIGHT - 0.5f,          - 0.5f,
+        WIDTH - 0.5f,  HEIGHT - 0.5f,          - 0.5f,
                 - 0.5f,  HEIGHT - 0.5f,          - 0.5f,
         // vertical lines connecting bottom and top square
                 - 0.5f,         - 0.5f,          - 0.5f,
                 - 0.5f,  HEIGHT - 0.5f,          - 0.5f,
-                - 0.5f,         - 0.5f,  WIDTH_Z - 0.5f,
-                - 0.5f,  HEIGHT - 0.5f,  WIDTH_Z - 0.5f,
-        WIDTH_X - 0.5f,         - 0.5f,  WIDTH_Z - 0.5f,
-        WIDTH_X - 0.5f,  HEIGHT - 0.5f,  WIDTH_Z - 0.5f,
-        WIDTH_X - 0.5f,         - 0.5f,          - 0.5f,
-        WIDTH_X - 0.5f,  HEIGHT - 0.5f,          - 0.5f,
+                - 0.5f,         - 0.5f,  WIDTH - 0.5f,
+                - 0.5f,  HEIGHT - 0.5f,  WIDTH - 0.5f,
+        WIDTH - 0.5f,         - 0.5f,  WIDTH - 0.5f,
+        WIDTH - 0.5f,  HEIGHT - 0.5f,  WIDTH - 0.5f,
+        WIDTH - 0.5f,         - 0.5f,          - 0.5f,
+        WIDTH - 0.5f,  HEIGHT - 0.5f,          - 0.5f,
     };
 
     glGenBuffers(1, &borderVBO);
@@ -141,6 +175,9 @@ void Area::initBorder()
     glEnableVertexAttribArray(0);
 }
 
+
+
+int getPreviewY(Player, Area);
 
 // GAME
 
@@ -176,6 +213,7 @@ class Game
         //double newLevelTickOffset = 0; // Brings 'tick' down to 0 when next block spawns
         int tick = 0;
         double tickOffset = 0;
+        double tickDropOffset = 0;
         int dropOffset = 0;
         int initLowestIndex = 0;
 
@@ -209,18 +247,7 @@ void Game::processLogic()
     // TODO: posebna funkcija za procesiranje akcija kad je igra pauzirana
 
     // Tick logic
-    tick = glfwGetTime() * speed - tickOffset;
-    /* tick = glfwGetTime() * speed - newLevelTickOffset;
-    if (tick != prevTick)
-    {
-        newTick = true;
-        prevTick = tick;
-        /* dropInitiated = false;
-        newLevelTickOffset = glfwGetTime() * speed;
-    }
-    if (!newTick)
-        return;
-    newTick = false; */
+    tick = glfwGetTime() * speed - tickOffset - tickDropOffset; // BUG: treba ažurirat tickOffset kad se pauzira
 
 
     int &pox = player.offset.x;
@@ -230,26 +257,41 @@ void Game::processLogic()
     // Update Player shape if 1) game started, or 2) new "level" started
     if (shouldSpawnNewBlock)
     {
-        int rs = rand() % (sizeof(shapes) / sizeof(Shape));
-        player.setShape(rs);
+        int r = rand() % 8;//(sizeof(shapes) / sizeof(Shape));
+        std::cout << "Rand " << r << std::endl;
+        player.setShape(r);
+        player.setMaterial(r + 1);
 
-        //int rc = rand() % textures.size();
-        player.setColor(textures[rs]);
+        // Randomize initial rotation
+        int rx, ry, rz;
+        rx = rand() % 4;
+        ry = rand() % 4;
+        rz = rand() % 4;
+        for (int i = 0; i < rx; i++)
+            player.shape.rotate(AXIS_X, ROT_CW);
+        for (int i = 0; i < ry; i++)
+            player.shape.rotate(AXIS_Y, ROT_CW);
+        for (int i = 0; i < rz; i++)
+            player.shape.rotate(AXIS_Z, ROT_CW);
 
-
-        pox = (area.WIDTH_X - SHAPE_WIDTH) / 2;
-        poz = (area.WIDTH_Z - SHAPE_WIDTH) / 2;
+        pox = (area.WIDTH - SHAPE_WIDTH) / 2;
+        poz = (area.WIDTH - SHAPE_WIDTH) / 2;
 
         shouldSpawnNewBlock = false;
         dropOffset = 0;
         initLowestIndex = player.shape.getLowestIndex(); // to prevent updates when rotating
-        //poy = area.HEIGHT - player.shape.getLowestIndex();
     }
-    //else
-        //poy--;
 
     poy = area.HEIGHT - initLowestIndex - tick - dropOffset;
-        
+
+
+    // Prevent unnecessary calculations if Player didn't move
+    if (player.prevOffset == player.offset)
+        return;
+    
+    player.prevOffset = player.offset;
+   
+    
     // If no collision was detected, move to next frame
     collisionDetected = checkCollision(player.shape);
     if (!collisionDetected)
@@ -266,6 +308,7 @@ void Game::processLogic()
                 {
                     std::cout << "over" << std::endl;
                     state = OVER;
+                    poy++; // This way the player is rendered above the collision
                     return;
                 }
     }
@@ -282,36 +325,54 @@ void Game::processLogic()
                 if (player.shape.positions[i][j][k])
                 {
                     area.countPerRow[player.offset.y + j + 1]++; // (j + 1) since collision happened at (j)
-                    area.positions[player.offset.x + i][player.offset.y + j + 1][player.offset.z + k] = player.texture;
+                    area.positions[player.offset.x + i][player.offset.y + j + 1][player.offset.z + k] = player.materialIndex;
+                    if (player.materialIndex == 0)
+                    {
+                        std::cout << "Yup " << area.positions[player.offset.x + i][player.offset.y + j + 1][player.offset.z + k] << std::endl;
+                    }
                 }
     }
     
 
     // Check if any rows got filled up; if so, clear them
     // OPTIMIZE: trenutno je brute force
+    bool speedIncreased = false;
     for (int j = area.HEIGHT - 1; j >= 0; j--)
     {
-        if (area.countPerRow[j] == area.WIDTH_X * area.WIDTH_Z)
+        if (area.countPerRow[j] == area.WIDTH * area.WIDTH) // Row is filled
         {
+            // Increase speed only once, no matter how many rows were cleared
+            if (!speedIncreased)
+            {
+                speed += 0.1;
+            }
+            speedIncreased = true;
+
+            // Bring everything down by 1
             for (int jj = j; jj < area.HEIGHT - 2; jj++)
             {
                 area.countPerRow[jj] = area.countPerRow[jj + 1];
 
-                for (int i = 0; i < area.WIDTH_X; i++)
-                    for (int k = 0; k < area.WIDTH_Z; k++)
+                for (int i = 0; i < area.WIDTH; i++)
+                    for (int k = 0; k < area.WIDTH; k++)
                         area.positions[i][jj][k] = area.positions[i][jj + 1][k];
             }
 
-            // clear top row
-            for (int i = 0; i < area.WIDTH_X; i++)
-                for (int k = 0; k < area.WIDTH_Z; k++)
+            // Clear top row
+            // FIXME: nema potrebe čistit gornji red svaki put kad se očisti red, samo za jedan je potrebno
+            for (int i = 0; i < area.WIDTH; i++)
+                for (int k = 0; k < area.WIDTH; k++)
                     area.positions[i][area.HEIGHT - 1][k] = 0;
         }
     }
 
 
+
+    std::cout << "Level ended at:\t" << glfwGetTime() * speed - tickOffset << std::endl;
     // Signal new level
-    tickOffset = glfwGetTime();
+    dropOffset = 0;
+    tickOffset = glfwGetTime() * speed;
+    tickDropOffset = 0.0;
     shouldSpawnNewBlock = true;
 }
 
@@ -321,18 +382,25 @@ void Game::render(Shader &shader)
 
     area.renderBorder(shader);
 
-    if (!collisionDetected)
+    if (!collisionDetected || state == OVER)
     {
         player.render(shader);
     }
+
     if (state != OVER)
         renderRotationAxis(shader);
 
     area.renderStaticBlocks(shader); // Must be called after rendering Player block to prevent visual stutter
+    
+    int offsetY = getPreviewY(player, area); // OPTIMIZE: pozvati samo kad se player pomakne: 1) započeo novi tick, 2) transform(), 3) drop
+    player.renderPreview(shader, offsetY);
 }
 
 void Game::transform(Transformation transform)
 {
+    if (state != ACTIVE)
+        return;
+
     if (transform == NONE)
     {
         keyPressed = false;
@@ -375,7 +443,7 @@ void Game::transform(Transformation transform)
         for (int i = 0; i < SHAPE_WIDTH; i++)
             for (int j = 0; j < SHAPE_WIDTH; j++)
                 for (int k = 0; k < SHAPE_WIDTH; k++)
-                    if (player.shape.positions[i][j][k] && player.offset.z + k + 1 >= area.WIDTH_Z)
+                    if (player.shape.positions[i][j][k] && player.offset.z + k + 1 >= area.WIDTH)
                         return;
 
         // ... or with other static blocks
@@ -415,7 +483,7 @@ void Game::transform(Transformation transform)
         for (int i = 0; i < SHAPE_WIDTH; i++)
             for (int j = 0; j < SHAPE_WIDTH; j++)
                 for (int k = 0; k < SHAPE_WIDTH; k++)
-                    if (player.shape.positions[i][j][k] && player.offset.x + i + 1 >= area.WIDTH_X)
+                    if (player.shape.positions[i][j][k] && player.offset.x + i + 1 >= area.WIDTH)
                         return;
 
         // ... or with other static blocks
@@ -450,40 +518,46 @@ void Game::transform(Transformation transform)
 
 void Game::drop()
 {
-    //if (!dropEnabled)
-    //    return;
-    
-    //dropEnabled = false;
+    // FIXME: kad kontinuirano pritiščeš SPACE, jedanput se spusti, a drugi put se vrati na inicijalnu poziciju
+    // mislim da je razlog to što se stiskanjem SPACE kad je player već spušten dropOffset postavlja na 0 (jer ne treba dalje spuštat)
+    // pa nema odmaka od originalnog položaja
+    dropOffset += getPreviewY(player, area);
+    tickDropOffset = glfwGetTime() * speed - tickOffset - (int)(glfwGetTime() * speed - tickOffset);//glfwGetTime() * speed - (int)(glfwGetTime() * speed);
 
-    int &pox = player.offset.x;
-    int poy = player.offset.y; 
+    /* int &pox = player.offset.x;
+    int  poy = player.offset.y;
     int &poz = player.offset.z;
 
     int li = player.shape.getLowestIndex();
+    std::cout << "li\t" << li <<std::endl;
 
     for (int aj = poy; aj >= -SHAPE_WIDTH + 1; aj--)
     {
         bool found = false;
 
+        if (aj + li >= AREA_HEIGHT)
+            continue;
+
         int newOffset = 0;
-            for (int i = 0; i < SHAPE_WIDTH && !found; i++)
-                for (int k = 0; k < SHAPE_WIDTH && !found; k++)
+        for (int i = 0; i < SHAPE_WIDTH && !found; i++)
+            for (int k = 0; k < SHAPE_WIDTH && !found; k++)
+            {
+                // Detect collision
+                if (player.shape.positions[i][li][k] && (aj + li < 0 || area.positions[pox + i][aj + li][poz + k]))
                 {
-                    if (player.shape.positions[i][li][k] && (aj + li < 0 || area.positions[pox + i][aj + li][poz + k]))
-                    {
-                        found = true;
-                        newOffset = aj;
-                    }
+                    found = true;
+                    newOffset = aj + 1; // Set offset to position above collision
                 }
+            }
         
         if (found)
         {
-            //poy = newOffset;
-            dropOffset = poy - newOffset;
-            std::cout << dropOffset << "\t" << poy << std::endl;
+            dropOffset = poy - newOffset; // poy = area.HEIGHT - initLowestIndex - tick - dropOffset = area.HEIGHT - initLowestIndex - tick - poy + newOffset = newOffset;
+            tickDropOffset = glfwGetTime() * speed - tickOffset - (int)(glfwGetTime() * speed - tickOffset);//glfwGetTime() * speed - (int)(glfwGetTime() * speed);
+            std::cout << "Time:\t" << glfwGetTime() * speed << "\n" << "Tick offset:\t" << tickOffset << "\n" << "Drop offset:\t" << tickDropOffset << "\n" << "New time:\t" << glfwGetTime() * speed - tickOffset << "\n" << std::endl;
             break;
         }
-    }
+    } */
 }
 
 void Game::setRotationAxis(Axis newAxis)
@@ -546,8 +620,8 @@ bool Game::detectHorizontalCollision(Shape shape)
         for (int j = 0; j < SHAPE_WIDTH; j++)
             for (int k = 0; k < SHAPE_WIDTH; k++)
                 if (shape.positions[i][j][k] &&
-                        (pox + i < 0 || pox + i >= area.WIDTH_X || // pox + i + 1 >= area.WIDTH_X
-                         poz + k < 0 || poz + k >= area.WIDTH_Z))
+                        (pox + i < 0 || pox + i >= area.WIDTH || // pox + i + 1 >= area.WIDTH
+                         poz + k < 0 || poz + k >= area.WIDTH))
                     return true;
 
     return false;
@@ -619,7 +693,7 @@ void Game::renderRotationAxis(Shader &shader)
     if (player.rotationAxis == AXIS_X)
     {
         model = glm::translate(model, glm::vec3(-0.5f, player.offset.y + SHAPE_WIDTH / 2.0f - 0.5f, player.offset.z + SHAPE_WIDTH / 2.0f - 0.5f));
-        model = glm::scale(model, glm::vec3(area.WIDTH_X));
+        model = glm::scale(model, glm::vec3(area.WIDTH));
     }
 
     // y-axis
@@ -633,10 +707,47 @@ void Game::renderRotationAxis(Shader &shader)
     else
     {
         model = glm::translate(model, glm::vec3(player.offset.x + SHAPE_WIDTH / 2.0f - 0.5f, player.offset.y + SHAPE_WIDTH / 2.0f - 0.5f, -0.5f));
-        model = glm::scale(model, glm::vec3(area.WIDTH_Z));
+        model = glm::scale(model, glm::vec3(area.WIDTH));
     }
     
     glBindVertexArray(currAxisVAO);
     shader.setMat4("model", model);
     glDrawArrays(GL_LINES, 0, 2);
 }
+
+
+int getPreviewY(Player player, Area area)
+{
+    int &pox = player.offset.x;
+    int  poy = player.offset.y;
+    int &poz = player.offset.z;
+
+    int li = player.shape.getLowestIndex();
+
+    for (int aj = poy; aj >= -SHAPE_WIDTH + 1; aj--)
+    {
+        bool found = false;
+
+        /* if (aj + li >= AREA_HEIGHT)
+            continue; */
+
+        int newOffset = 0;
+        for (int j = li; j < SHAPE_WIDTH && !found; j++)
+            for (int i = 0; i < SHAPE_WIDTH && !found; i++)
+                for (int k = 0; k < SHAPE_WIDTH && !found; k++)
+                {
+                    // Detect collision
+                    if (player.shape.positions[i][j][k] && (aj + j < 0 || aj + j < AREA_HEIGHT && (area.positions[pox + i][aj + j][poz + k])))
+                    {
+                        found = true;
+                        newOffset = aj + 1; // Set offset to position above collision
+                    }
+                }
+        
+        if (found)
+            return poy - newOffset; // poy = area.HEIGHT - initLowestIndex - tick - dropOffset = area.HEIGHT - initLowestIndex - tick - poy + newOffset = newOffset;
+    }
+
+}
+
+#endif

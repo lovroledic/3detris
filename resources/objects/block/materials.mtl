@@ -1,0 +1,44 @@
+newmtl White
+Ns 64.000000
+map_Kd resources/textures/colors/white.png
+map_Ks resources/textures/colors/specular.png
+
+newmtl Red
+Ns 64.000000
+map_Kd resources/textures/colors/red.png
+map_Ks resources/textures/colors/specular.png
+
+newmtl Green
+Ns 128.000000
+map_Kd resources/textures/colors/green.png
+map_Ks resources/textures/colors/specular.png
+
+newmtl Blue
+Ns 16.000000
+map_Kd resources/textures/colors/blue.png
+map_Ks resources/textures/colors/specular.png
+
+newmtl Cyan
+Ns 32.000000
+map_Kd resources/textures/colors/cyan.png
+map_Ks resources/textures/colors/specular.png
+
+#newmtl Container
+#Ns 32.000000
+#map_Kd resources/textures/materials/container/container-diffuse.png
+#map_Ks resources/textures/materials/container/container-specular.png
+
+newmtl Magenta
+Ns 32.000000
+map_Kd resources/textures/colors/magenta.png
+map_Ks resources/textures/colors/specular.png
+
+newmtl Yellow
+Ns 128.000000
+map_Kd resources/textures/colors/yellow.png
+map_Ks resources/textures/colors/specular.png
+
+newmtl Black
+Ns 64.000000
+map_Kd resources/textures/colors/black.png
+map_Ks resources/textures/colors/specular.png

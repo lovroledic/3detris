@@ -13,55 +13,52 @@
 
 unsigned int loadTexture(const char *path);
 
-#ifndef MODEL_H
+std::string getTagName(const std::string &in);
+std::string getTagValue(const std::string &in);
+std::vector<std::string> split(const std::string &str, const std::string &delimiter);
+
+
 struct Vertex
 {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 textureCoords;
 };
-
 struct Material
 {
     std::string name;
-    glm::vec3 Ka; // Ambient color
-    glm::vec3 Kd; // Diffuse color
-    glm::vec3 Ks; // Specular color
-    float Ns; // Specular exponent
-    std::string map_Kd; // Diffuse texture map path
-
     GLuint diffuseTextureID;
+    GLuint specularTextureID;
+    float Ns; // Specular exponent
 
     Material() {};
-
-    void print()
-    {
-        std::cout << "Material \"" << name << "\": " << std::endl
-            << "\tKa\t" << Ka.x << " " << Ka.y << " " << Ka.z << std::endl
-            << "\tKd\t" << Kd.x << " " << Kd.y << " " << Kd.z << std::endl
-            << "\tKs\t" << Ks.x << " " << Ks.y << " " << Ks.z << std::endl
-            << "\tNs\t" << Ns << std::endl
-            << "\tmap_Kd\t" << map_Kd << std::endl;
-    }
 };
-#endif
+
+std::vector<Material> materials;
 
 class Block
 {
     private:
-        GLuint VBO;
-        GLuint VAO;
 
     public:
+        GLuint VBO;
+        GLuint VAO;
         std::vector<Vertex> vertices;
         Material material;
-        GLuint textureID;
 
         Block() {};
         Block(const std::string &objPath, GLuint defaultTextureID)
         {
             loadObj(objPath);
-            textureID = defaultTextureID;
+            //materials.push_back(Material()); // material at index 0 is a placeholder
+            std::cout << loadMtl("resources/objects/block/materials.mtl") << std::endl;
+
+            std::cout << "Materials (" << materials.size() << "):" << std::endl;
+            for (Material m : materials)
+            {
+                std::cout << m.name << std::endl;
+            }
+            //textureID = defaultTextureID;
 
             glGenVertexArrays(1, &VAO);
             glGenBuffers(1, &VBO);
@@ -81,9 +78,14 @@ class Block
 
         void draw()
         {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, material.diffuseTextureID);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, material.specularTextureID);
+
             glBindVertexArray(VAO);
-            glBindTexture(GL_TEXTURE_2D, textureID);
             glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+            glActiveTexture(GL_TEXTURE0);
         }
         void del()
         {
@@ -92,8 +94,8 @@ class Block
         }
 
         bool loadObj(const std::string &objPath);
+        bool loadMtl(const std::string &mtlPath);
 };
-
 
 // Reduced version of loadObj from Model (only loads vertex data)
 bool Block::loadObj(const std::string &objPath)
@@ -213,7 +215,73 @@ bool Block::loadObj(const std::string &objPath)
     return true;
 }
 
-#ifndef MODEL_H
+bool Block::loadMtl(const std::string &mtlPath)
+{
+    // Check if file is of valid type
+    if (mtlPath.substr(mtlPath.length() - 4, 4) != ".mtl")
+        return false;
+
+    std::ifstream file(mtlPath);
+
+    if (!file)
+        return false;
+
+    //std::vector<Material> materials;
+    Material currMat;
+
+    std::string currLine;
+    while (std::getline(file, currLine))
+    {
+        std::string tagName = getTagName(currLine);
+        if (tagName.length() == 0 || tagName[0] == '#')
+            continue;
+
+        std::string tagValue = getTagValue(currLine);
+
+        // Instantiate new material
+        if (tagName == "newmtl")
+        {
+            if (currMat.name.length() > 0)
+            {
+                materials.push_back(currMat);
+
+                currMat = Material();
+            }
+
+            if (tagValue.length() > 0)
+                currMat.name = tagValue;
+            else
+                currMat.name = "unnamed";
+        }
+
+        // Specular exponent
+        if (tagName == "Ns")
+        {
+            currMat.Ns = std::stof(tagValue);
+        }
+
+        // Diffuse texture
+        if (tagName == "map_Kd")
+        {
+            std::cout << "diff\t" << tagValue << std::endl;
+            currMat.diffuseTextureID = loadTexture(tagValue.c_str());
+        }
+        
+        // Specular texture
+        if (tagName == "map_Ks")
+        {
+            std::cout << "spec\t" << tagValue << std::endl;
+            currMat.specularTextureID = loadTexture(tagValue.c_str());
+        }
+    }
+
+    file.close();
+
+    materials.push_back(currMat);
+    
+    return true;
+}
+
 std::string getTagName(const std::string &in)
 {
     size_t nameStart = in.find_first_not_of(" \t");
@@ -260,7 +328,5 @@ std::vector<std::string> split(const std::string &str, const std::string &delimi
 
     return values;
 }
-
-#endif
 
 #endif

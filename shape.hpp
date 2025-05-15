@@ -72,6 +72,7 @@ Shape Shape::getRotated(Axis axis, Transformation rd)
     // REVIEW: pretpostavlja se validni rd
 
     Shape rotated;
+    rotated.count = this->count;
 
     for (int r = 0; r < SHAPE_WIDTH; r++) // r - axis on which rotation is being performed
     {
@@ -146,6 +147,28 @@ Shape shapes[] = {
         }
     },
     {
+        // V
+        .count = 3,
+        .positions = 
+        {
+            {   // x = 0
+                { 0, 0, 0 },   // y = 0
+                { 0, 0, 0 },   // y = 1
+                { 0, 0, 0 }    // y = 2
+            },
+            {   // x = 1
+                { 0, 0, 0 },   // y = 0
+                { 1, 1, 0 },   // y = 1
+                { 0, 1, 0 }    // y = 2
+            },
+            {   // x = 2
+                { 0, 0, 0 },   // y = 0
+                { 0, 0, 0 },   // y = 1
+                { 0, 0, 0 }    // y = 2
+            }
+        }
+    },
+    {
         // L
         .count = 4,
         .positions = 
@@ -190,7 +213,7 @@ Shape shapes[] = {
         }
     },
     {
-        // stair
+        // stair / Z
         .count = 4,
         .positions = 
         {
@@ -207,6 +230,72 @@ Shape shapes[] = {
             {   // x = 2
                 { 0, 0, 0 },   // y = 0
                 { 0, 0, 0 },   // y = 1
+                { 0, 0, 0 }    // y = 2
+            }
+        }
+    },
+    {
+        // chiral A
+        .count = 4,
+        .positions = 
+        {
+            {   // x = 0
+                { 0, 0, 0 },   // y = 0
+                { 0, 0, 0 },   // y = 1
+                { 0, 1, 0 }    // y = 2
+            },
+            {   // x = 1
+                { 0, 0, 0 },   // y = 0
+                { 1, 1, 0 },   // y = 1
+                { 0, 1, 0 }    // y = 2
+            },
+            {   // x = 2
+                { 0, 0, 0 },   // y = 0
+                { 0, 0, 0 },   // y = 1
+                { 0, 0, 0 }    // y = 2
+            }
+        }
+    },
+    {
+        // chiral B
+        .count = 4,
+        .positions = 
+        {
+            {   // x = 0
+                { 0, 0, 0 },   // y = 0
+                { 0, 0, 0 },   // y = 1
+                { 0, 0, 0 }    // y = 2
+            },
+            {   // x = 1
+                { 0, 0, 0 },   // y = 0
+                { 1, 1, 0 },   // y = 1
+                { 0, 1, 0 }    // y = 2
+            },
+            {   // x = 2
+                { 0, 0, 0 },   // y = 0
+                { 0, 0, 0 },   // y = 1
+                { 0, 1, 0 }    // y = 2
+            }
+        }
+    },
+    {
+        // axes
+        .count = 4,
+        .positions = 
+        {
+            {   // x = 0
+                { 0, 0, 0 },   // y = 0
+                { 0, 0, 0 },   // y = 1
+                { 0, 0, 0 }    // y = 2
+            },
+            {   // x = 1
+                { 0, 0, 0 },   // y = 0
+                { 1, 1, 0 },   // y = 1
+                { 0, 1, 0 }    // y = 2
+            },
+            {   // x = 2
+                { 0, 0, 0 },   // y = 0
+                { 0, 1, 0 },   // y = 1
                 { 0, 0, 0 }    // y = 2
             }
         }
