@@ -50,11 +50,11 @@ class Camera
         Camera() {}
         Camera(Area area) : MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
         {
-            mode = CAMERA_ORTHO;
+            mode = CAMERA_PERSPECTIVE;
             areaDimensions = glm::ivec3(area.WIDTH, area.HEIGHT, area.WIDTH);
             Center = glm::vec3(areaDimensions.x / 2.0f - 0.5f, areaDimensions.y / 2.0f - 0.5f, areaDimensions.z / 2.0f - 0.5f);
             RelativePosition = glm::vec3(0.0f, 0.0f, 1.0f);
-            Distance = 2 * areaDimensions.x;
+            Distance = 2.8f * areaDimensions.x;
             Position = Center + Distance * RelativePosition;
 
             Yaw = YAW;
@@ -83,7 +83,7 @@ class Camera
             if (mode == CAMERA_ORTHO)
             {
                 mode = CAMERA_PERSPECTIVE;
-                Distance = 2.6f * areaDimensions.x;
+                Distance = 2.8f * areaDimensions.x;
             }
             else
             {

@@ -106,6 +106,7 @@ int main()
 
     // Build and compile shader program
     Shader shader("shaders/my_shader.vert", "shaders/my_shader.frag");
+    Shader lightSourceShader("shaders/my_shader.vert", "shaders/light_source.frag");
     Shader textShader("shaders/text.vert", "shaders/text.frag");
     
     initFreeType();
@@ -113,61 +114,57 @@ int main()
     textShader.use();
     textShader.setMat4("projection", projection);
 
-    GLuint containerDiffuse = loadTexture("resources/textures/materials/container/container-diffuse.png");
-    GLuint containerSpecular = loadTexture("resources/textures/materials/container/container-specular.png");
-
-    glm::vec3 pointLightPositions[] = {
-        glm::vec3(-1.0f, -1.0f, -1.0f),
-        glm::vec3( 8.0f,  3.0f,  8.0f),
-        glm::vec3(-1.0f,  7.0f,  8.0f),
-        glm::vec3( 8.0f, 11.0f, -1.0f)
-    };
+    glm::vec3 areaCenter = glm::vec3( AREA_WIDTH / 2.0f - 0.5f, AREA_HEIGHT / 2.0f - 0.5f, AREA_WIDTH / 2.0f - 0.5f);
 
     shader.use();
     shader.setInt("material.diffuse", 0); // 0 == GL_TEXTURE0
     shader.setInt("material.specular", 1); // 1 == GL_TEXTURE1
     shader.setFloat("material.shininess", 100.0f);
-    shader.setVec3("dirLight.direction", 0.8f, 1.0f, 0.3f);
-    shader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
+    shader.setVec3("dirLight.direction", 0.2f, 1.0f, 0.2f);
+    shader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
     shader.setVec3("dirLight.diffuse", 0.8f, 0.8f, 0.8f);
-    shader.setVec3("dirLight.specular", 0.2f, 0.2f, 0.2f);
+    shader.setVec3("dirLight.specular", 0.3f, 0.3f, 0.3f);
+    /* shader.setVec3("dirLight.ambient", 0.0f, 0.0f, 0.0f);
+    shader.setVec3("dirLight.diffuse", 0.0f, 0.0f, 0.0f);
+    shader.setVec3("dirLight.specular", 0.0f, 0.0f, 0.0f); */
 
-    shader.setVec3("pointLights[0].position", pointLightPositions[0]);
-    shader.setVec3("pointLights[0].ambient", 0.05f, 0.05f, 0.05f);
-    shader.setVec3("pointLights[0].diffuse", 0.8f, 0.8f, 0.8f);
+    shader.setVec3("pointLights[0].ambient", 0.0f, 0.0f, 0.0f);
+    shader.setVec3("pointLights[0].diffuse", 0.6f, 0.6f, 0.6f);
     shader.setVec3("pointLights[0].specular", 0.5f, 0.5f, 0.5f);
     shader.setFloat("pointLights[0].constant", 1.0f);
-    shader.setFloat("pointLights[0].linear", 0.7f);
-    shader.setFloat("pointLights[0].quadratic", 1.8f);
+    shader.setFloat("pointLights[0].linear", 0.045);
+    shader.setFloat("pointLights[0].quadratic", 0.0075);
 
-    shader.setVec3("pointLights[1].position", pointLightPositions[1]);
-    shader.setVec3("pointLights[1].ambient", 0.05f, 0.0f, 0.0f);
-    shader.setVec3("pointLights[1].diffuse", 0.5f, 0.0f, 0.0f);
+    shader.setVec3("pointLights[1].ambient", 0.0f, 0.0f, 0.0f);
+    shader.setVec3("pointLights[1].diffuse", 1.0f, 0.0f, 0.0f);
     shader.setVec3("pointLights[1].specular", 0.5f, 0.0f, 0.0f);
     shader.setFloat("pointLights[1].constant", 1.0f);
-    shader.setFloat("pointLights[1].linear", 0.7f);
-    shader.setFloat("pointLights[1].quadratic", 1.8f);
+    shader.setFloat("pointLights[1].linear", 0.045);
+    shader.setFloat("pointLights[1].quadratic", 0.0075);
 
-    shader.setVec3("pointLights[2].position", pointLightPositions[2]);
-    shader.setVec3("pointLights[2].ambient", 0.0f, 0.05f, 0.0f);
-    shader.setVec3("pointLights[2].diffuse", 0.0f, 0.5f, 0.0f);
+    shader.setVec3("pointLights[2].ambient", 0.0f, 0.0f, 0.0f);
+    shader.setVec3("pointLights[2].diffuse", 0.0f, 1.0f, 0.0f);
     shader.setVec3("pointLights[2].specular", 0.0f, 0.5f, 0.0f);
     shader.setFloat("pointLights[2].constant", 1.0f);
-    shader.setFloat("pointLights[2].linear", 0.7f);
-    shader.setFloat("pointLights[2].quadratic", 1.8f);
+    shader.setFloat("pointLights[2].linear", 0.045);
+    shader.setFloat("pointLights[2].quadratic", 0.0075);
 
-    shader.setVec3("pointLights[3].position", pointLightPositions[3]);
-    shader.setVec3("pointLights[3].ambient", 0.0f, 0.0f, 0.05f);
-    shader.setVec3("pointLights[3].diffuse", 0.0f, 0.0f, 0.5f);
+    shader.setVec3("pointLights[3].ambient", 0.0f, 0.0f, 0.0f);
+    shader.setVec3("pointLights[3].diffuse", 0.0f, 0.0f, 1.0f);
     shader.setVec3("pointLights[3].specular", 0.0f, 0.0f, 0.5f);
     shader.setFloat("pointLights[3].constant", 1.0f);
-    shader.setFloat("pointLights[3].linear", 0.7f);
-    shader.setFloat("pointLights[3].quadratic", 1.8f);
+    shader.setFloat("pointLights[3].linear", 0.045);
+    shader.setFloat("pointLights[3].quadratic", 0.0075);
 
     //Model whiteBlock("resources/objects/white-block/white-block.obj");
     glm::vec3 bgColor = glm::vec3(0.5f, 0.5f, 0.5f);
     
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    
+    double discoTimeStamp = 0.0f;
+    float discoOffset = 0.0f;
+    shader.setBool("discoMode", false);
 
     // Render loop
     while (!glfwWindowShouldClose(window))
@@ -186,27 +183,75 @@ int main()
 
 
         // Draw
-        shader.use();
-        shader.setVec3("viewPos", camera.Position);
-
         glm::mat4 view = camera.getViewMatrix();
         glm::mat4 projection = camera.getProjectionMatrix();
         //glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)currScrWidth / currScrHeight, 0.1f, 100.0f);
         ////glm::mat4 projection = glm::ortho(-16.0f, 16.0f, -16.0f * currScrHeight / currScrWidth, 16.0f * currScrHeight / currScrWidth, 0.1f, 100.0f);
         //glm::mat4 projection = glm::ortho(-12.0f, 12.0f, -12.0f, 12.0f, 0.1f, 100.0f);
 
-        shader.setMat4("projection", projection);
-        shader.setMat4("view", view);
-
-        for (int i = 0; i < sizeof(pointLightPositions) / sizeof(glm::vec3); i++)
+        
+        if (game.discoMode || game.discoInitiated)
         {
-            glm::mat4 model(1.0f);
-            model = glm::translate(model, pointLightPositions[i]);
-            model = glm::scale(model, glm::vec3(0.5f));
-            shader.setMat4("model", model);
-            block.material = materials[i];
-            block.draw();
+            if (game.discoInitiated)
+            {
+                game.discoInitiated = false;
+                game.discoMode = true;
+                discoTimeStamp = glfwGetTime();
+                std::cout << discoTimeStamp << std::endl;
+
+                shader.use();
+                shader.setVec3("dirLight.diffuse", 0.0f, 0.0f, 0.0f);
+                shader.setVec3("dirLight.specular", 0.0f, 0.0f, 0.0f);
+                shader.setBool("discoMode", true);
+
+                for (int i = 0; i < AREA_HEIGHT && game.area.countPerRow[i]; i++)
+                    if (game.area.countPerRow[i] > 0)
+                        discoOffset = i;
+            }
+            
+
+
+            bgColor = glm::vec3(0.2f + sin(glfwGetTime() * 3 - M_PI) / 10,
+                                0.2f + sin(glfwGetTime() * 3) / 10,
+                                0.2f + sin(glfwGetTime() * 3 + M_PI) / 10);
+
+            float rotSpeed = 1 / 4.0f;
+            glm::vec3 pointLightPositions[] = {
+                glm::vec3(areaCenter.x + AREA_WIDTH * sin(glfwGetTime() * rotSpeed), areaCenter.y + sin(glfwGetTime()), areaCenter.z + AREA_WIDTH * cos(glfwGetTime() * rotSpeed)),
+                glm::vec3(areaCenter.x + AREA_WIDTH * sin(glfwGetTime() * rotSpeed), discoOffset + 3 * sin(glfwGetTime()), areaCenter.z + AREA_WIDTH * cos(glfwGetTime() * rotSpeed)),
+                glm::vec3(areaCenter.x + AREA_WIDTH * sin(glfwGetTime() * rotSpeed + 2 * M_PI / 3), discoOffset + 3 * sin(glfwGetTime() * M_PI_2), areaCenter.z + AREA_WIDTH * cos(glfwGetTime() * rotSpeed + 2 * M_PI / 3)),
+                glm::vec3(areaCenter.x + AREA_WIDTH * sin(glfwGetTime() * rotSpeed + 4 * M_PI / 3), discoOffset + 3 * sin(glfwGetTime() * M_PI), areaCenter.z + AREA_WIDTH * cos(glfwGetTime() * rotSpeed + 4 * M_PI / 3)),
+            };
+            shader.use();
+            for (int i = 1; i < sizeof(pointLightPositions) / sizeof(glm::vec3); i++)
+                shader.setVec3("pointLights[" + std::to_string(i) + "].position", pointLightPositions[i]);
+            lightSourceShader.use();
+            lightSourceShader.setMat4("projection", projection);
+            lightSourceShader.setMat4("view", view);
+            for (int i = 1; i < sizeof(pointLightPositions) / sizeof(glm::vec3); i++)
+            {
+                glm::mat4 model(1.0f);
+                model = glm::translate(model, pointLightPositions[i]);
+                model = glm::scale(model, glm::vec3(0.4f));
+                lightSourceShader.setMat4("model", model);
+                block.material = materials[i + 8];
+                block.draw();
+            }
+
+            // Disco should end
+            if (glfwGetTime() - discoTimeStamp > 10.0)
+            {
+                game.discoMode = false;
+
+                bgColor = glm::vec3(0.5f, 0.5f, 0.5f);
+
+                shader.use();
+                shader.setVec3("dirLight.diffuse", 0.8f, 0.8f, 0.8f);
+                shader.setVec3("dirLight.specular", 0.3f, 0.3f, 0.3f);
+                shader.setBool("discoMode", false);
+            }
         }
+        
 
         /*{
         // CUBEMAP
@@ -218,12 +263,18 @@ int main()
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }*/
 
+        shader.use();
+        shader.setVec3("viewPos", camera.Position);
+        
+        shader.setMat4("projection", projection);
+        shader.setMat4("view", view);
+
         game.processLogic();
         game.render(shader);
 
         // Text
         textShader.use();
-        RenderText(textShader, "Score: " + std::to_string(game.score), 10.0f, currScrHeight - 48.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        RenderText(textShader, "Score: " + std::to_string(game.score) + (game.discoMode ? "(x3)" : ""), 10.0f, currScrHeight - 48.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
         std::stringstream stream;
         stream << std::fixed << std::setprecision(1) << game.speed;
         std::string speed = stream.str();
@@ -248,7 +299,7 @@ int main()
     block.del();
     //whiteBlock.del();
 
-
+    
     glfwTerminate();
     return 0;
 }

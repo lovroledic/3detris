@@ -14,7 +14,7 @@ map_Kd resources/textures/colors/green.png
 map_Ks resources/textures/colors/specular.png
 
 newmtl Blue
-Ns 16.000000
+Ns 128.000000
 map_Kd resources/textures/colors/blue.png
 map_Ks resources/textures/colors/specular.png
 
@@ -42,3 +42,16 @@ newmtl Black
 Ns 64.000000
 map_Kd resources/textures/colors/black.png
 map_Ks resources/textures/colors/specular.png
+
+# Lights
+newmtl White
+map_Kd resources/textures/colors/full-white.png
+
+newmtl Red
+map_Kd resources/textures/colors/full-red.png
+
+newmtl Green
+map_Kd resources/textures/colors/full-green.png
+
+newmtl Blue
+map_Kd resources/textures/colors/full-blue.png

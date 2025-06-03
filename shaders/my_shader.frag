@@ -30,6 +30,7 @@ in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
 
+uniform bool discoMode;
 uniform float alpha; // transparency factor
 uniform vec3 viewPos;
 uniform Material material;
@@ -48,8 +49,9 @@ void main()
 	vec3 viewDir = normalize(viewPos - FragPos); // Points from a fragment to the viewer
 
 	vec3 result = calcDirLight(dirLight, normal, viewDir);
-    for(int i = 0; i < NR_POINT_LIGHTS; i++)
-        result += calcPointLight(pointLights[i], normal, FragPos, viewDir);
+	if (discoMode)
+		for(int i = 0; i < NR_POINT_LIGHTS; i++)
+			result += calcPointLight(pointLights[i], normal, FragPos, viewDir);
 
 	FragColor = vec4(result, alpha);
 }

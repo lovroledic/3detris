@@ -31,19 +31,14 @@ class Player
         glm::ivec3 offset; // offset within Area
         Axis rotationAxis = AXIS_Y;
 
-
         void setShape(int index) { shape = shapes[index]; }
-        //void setColor(GLuint texID) { texture = texID; }
         void setMaterial(int matIndex) { materialIndex = matIndex; };
 
-        void render(Shader &);
-        void renderPreview(Shader &, int);
-
-    private:
-        
+        void render(Shader &, bool);
+        void renderPreview(Shader &, bool, int); 
 };
 
-void Player::render(Shader &shader)
+void Player::render(Shader &shader, bool discoMode)
 {
     glm::mat4 model;
     for (int i = 0; i < SHAPE_WIDTH; i++)
@@ -53,14 +48,14 @@ void Player::render(Shader &shader)
                 {
                     model = glm::translate(glm::mat4(1.0f), glm::vec3(offset.x + i, offset.y + j, offset.z + k));
                     shader.setMat4("model", model);
-                    block.material = materials[materialIndex - 1];
+                    block.material = discoMode ? materials[0] : materials[materialIndex - 1];
                     shader.setFloat("material.shininess", block.material.Ns);
                     block.draw();
                 }
 }
 
 // Render a preview of where the block would be positioned if it were dropped
-void Player::renderPreview(Shader &shader, int offsetY)
+void Player::renderPreview(Shader &shader, bool discoMode, int offsetY)
 {
     // Player is already positioned where it can drop the lowest
     if (offsetY == 0)
@@ -74,10 +69,10 @@ void Player::renderPreview(Shader &shader, int offsetY)
                 {
                     model = glm::translate(glm::mat4(1.0f), glm::vec3(offset.x + i, offset.y + j - offsetY, offset.z + k));
                     shader.setMat4("model", model);
-                    block.material = materials[materialIndex - 1];
+                    block.material = discoMode ? materials[0] : materials[materialIndex - 1];
                     shader.setFloat("material.shininess", block.material.Ns);
 
-                    shader.setFloat("alpha", 0.2f);
+                    shader.setFloat("alpha", 0.4f + sin(glfwGetTime() * M_PI) / 4.0f);
                     block.draw();
                     shader.setFloat("alpha", 1.0f);
                 }
@@ -85,8 +80,8 @@ void Player::renderPreview(Shader &shader, int offsetY)
 
 
 // AREA
-#define AREA_WIDTH 8
-#define AREA_HEIGHT 16
+#define AREA_WIDTH 7
+#define AREA_HEIGHT 12
 
 class Area
 {
@@ -99,7 +94,7 @@ class Area
 
         void init() { initBorder(); }
         void renderBorder(Shader &);
-        void renderStaticBlocks(Shader &);
+        void renderStaticBlocks(Shader &, bool);
 
     private:
         GLuint borderVBO, borderVAO;
@@ -115,7 +110,7 @@ void Area::renderBorder(Shader &shader)
     glDrawArrays(GL_LINES, 0, 24);
 }
 
-void Area::renderStaticBlocks(Shader &shader)
+void Area::renderStaticBlocks(Shader &shader, bool discoMode)
 {
     glm::mat4 model;
     for (int i = 0; i < WIDTH; i++)
@@ -125,7 +120,7 @@ void Area::renderStaticBlocks(Shader &shader)
                 {
                     model = glm::translate(glm::mat4(1.0f), glm::vec3(i, j, k));
                     shader.setMat4("model", model);
-                    block.material = materials[positions[i][j][k] - 1];
+                    block.material = discoMode ? materials[0] : materials[positions[i][j][k] - 1];
                     shader.setFloat("material.shininess", block.material.Ns);
                     block.draw();
                 }
@@ -193,6 +188,8 @@ class Game
         State state;
         double speed = 1.0f;
         int score = 0;
+        bool discoMode = false;
+        bool discoInitiated = false;
 
         Player player;
         Area area;
@@ -208,9 +205,6 @@ class Game
         void setRotationAxis(Axis);
 
     private:
-        //bool newTick = true; // game starts on new tick
-        //int prevTick = 0;
-        //double newLevelTickOffset = 0; // Brings 'tick' down to 0 when next block spawns
         int tick = 0;
         double tickOffset = 0;
         double tickDropOffset = 0;
@@ -247,7 +241,7 @@ void Game::processLogic()
     // TODO: posebna funkcija za procesiranje akcija kad je igra pauzirana
 
     // Tick logic
-    tick = glfwGetTime() * speed - tickOffset - tickDropOffset; // BUG: treba ažurirat tickOffset kad se pauzira
+    tick = glfwGetTime() * 1.25f * speed - tickOffset - tickDropOffset; // BUG: treba ažurirat tickOffset kad se pauzira
 
 
     int &pox = player.offset.x;
@@ -315,7 +309,7 @@ void Game::processLogic()
 
 
     // Scoring
-    score += player.shape.count;
+    score += discoMode ? player.shape.count * 3 : player.shape.count;
 
     // Lock the Player in place
     for (int j = 0; j < SHAPE_WIDTH; j++)
@@ -337,6 +331,7 @@ void Game::processLogic()
     // Check if any rows got filled up; if so, clear them
     // OPTIMIZE: trenutno je brute force
     bool speedIncreased = false;
+    int rowsCleared = 0;
     for (int j = area.HEIGHT - 1; j >= 0; j--)
     {
         if (area.countPerRow[j] == area.WIDTH * area.WIDTH) // Row is filled
@@ -363,15 +358,23 @@ void Game::processLogic()
             for (int i = 0; i < area.WIDTH; i++)
                 for (int k = 0; k < area.WIDTH; k++)
                     area.positions[i][area.HEIGHT - 1][k] = 0;
+
+            rowsCleared++;
         }
+    }
+    if (rowsCleared >= 1)
+    {
+        discoMode = true;
+        discoInitiated = true;
+        std::cout << "Start disco!!!" << std::endl;
     }
 
 
 
-    std::cout << "Level ended at:\t" << glfwGetTime() * speed - tickOffset << std::endl;
+    std::cout << "Level ended at:\t" << glfwGetTime() * 1.25f * speed - tickOffset << std::endl;
     // Signal new level
     dropOffset = 0;
-    tickOffset = glfwGetTime() * speed;
+    tickOffset = glfwGetTime() * 1.25f * speed;
     tickDropOffset = 0.0;
     shouldSpawnNewBlock = true;
 }
@@ -384,16 +387,16 @@ void Game::render(Shader &shader)
 
     if (!collisionDetected || state == OVER)
     {
-        player.render(shader);
+        player.render(shader, discoMode);
     }
 
     if (state != OVER)
         renderRotationAxis(shader);
 
-    area.renderStaticBlocks(shader); // Must be called after rendering Player block to prevent visual stutter
+    area.renderStaticBlocks(shader, discoMode); // Must be called after rendering Player block to prevent visual stutter
     
     int offsetY = getPreviewY(player, area); // OPTIMIZE: pozvati samo kad se player pomakne: 1) započeo novi tick, 2) transform(), 3) drop
-    player.renderPreview(shader, offsetY);
+    player.renderPreview(shader, discoMode, offsetY);
 }
 
 void Game::transform(Transformation transform)
@@ -518,46 +521,8 @@ void Game::transform(Transformation transform)
 
 void Game::drop()
 {
-    // FIXME: kad kontinuirano pritiščeš SPACE, jedanput se spusti, a drugi put se vrati na inicijalnu poziciju
-    // mislim da je razlog to što se stiskanjem SPACE kad je player već spušten dropOffset postavlja na 0 (jer ne treba dalje spuštat)
-    // pa nema odmaka od originalnog položaja
     dropOffset += getPreviewY(player, area);
-    tickDropOffset = glfwGetTime() * speed - tickOffset - (int)(glfwGetTime() * speed - tickOffset);//glfwGetTime() * speed - (int)(glfwGetTime() * speed);
-
-    /* int &pox = player.offset.x;
-    int  poy = player.offset.y;
-    int &poz = player.offset.z;
-
-    int li = player.shape.getLowestIndex();
-    std::cout << "li\t" << li <<std::endl;
-
-    for (int aj = poy; aj >= -SHAPE_WIDTH + 1; aj--)
-    {
-        bool found = false;
-
-        if (aj + li >= AREA_HEIGHT)
-            continue;
-
-        int newOffset = 0;
-        for (int i = 0; i < SHAPE_WIDTH && !found; i++)
-            for (int k = 0; k < SHAPE_WIDTH && !found; k++)
-            {
-                // Detect collision
-                if (player.shape.positions[i][li][k] && (aj + li < 0 || area.positions[pox + i][aj + li][poz + k]))
-                {
-                    found = true;
-                    newOffset = aj + 1; // Set offset to position above collision
-                }
-            }
-        
-        if (found)
-        {
-            dropOffset = poy - newOffset; // poy = area.HEIGHT - initLowestIndex - tick - dropOffset = area.HEIGHT - initLowestIndex - tick - poy + newOffset = newOffset;
-            tickDropOffset = glfwGetTime() * speed - tickOffset - (int)(glfwGetTime() * speed - tickOffset);//glfwGetTime() * speed - (int)(glfwGetTime() * speed);
-            std::cout << "Time:\t" << glfwGetTime() * speed << "\n" << "Tick offset:\t" << tickOffset << "\n" << "Drop offset:\t" << tickDropOffset << "\n" << "New time:\t" << glfwGetTime() * speed - tickOffset << "\n" << std::endl;
-            break;
-        }
-    } */
+    tickDropOffset = glfwGetTime() * 1.25f * speed - tickOffset - (int)(glfwGetTime() * 1.25f * speed - tickOffset);//glfwGetTime() * speed - (int)(glfwGetTime() * speed);
 }
 
 void Game::setRotationAxis(Axis newAxis)
@@ -727,9 +692,6 @@ int getPreviewY(Player player, Area area)
     for (int aj = poy; aj >= -SHAPE_WIDTH + 1; aj--)
     {
         bool found = false;
-
-        /* if (aj + li >= AREA_HEIGHT)
-            continue; */
 
         int newOffset = 0;
         for (int j = li; j < SHAPE_WIDTH && !found; j++)

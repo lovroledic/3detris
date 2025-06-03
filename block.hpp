@@ -30,8 +30,6 @@ struct Material
     GLuint diffuseTextureID;
     GLuint specularTextureID;
     float Ns; // Specular exponent
-
-    Material() {};
 };
 
 std::vector<Material> materials;
@@ -50,8 +48,7 @@ class Block
         Block(const std::string &objPath, GLuint defaultTextureID)
         {
             loadObj(objPath);
-            //materials.push_back(Material()); // material at index 0 is a placeholder
-            std::cout << loadMtl("resources/objects/block/materials.mtl") << std::endl;
+            loadMtl("resources/objects/block/materials.mtl");
 
             std::cout << "Materials (" << materials.size() << "):" << std::endl;
             for (Material m : materials)
@@ -226,7 +223,6 @@ bool Block::loadMtl(const std::string &mtlPath)
     if (!file)
         return false;
 
-    //std::vector<Material> materials;
     Material currMat;
 
     std::string currLine;
