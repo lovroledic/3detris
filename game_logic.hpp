@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <vector>
+#include <map>
 
 #include "block.hpp"
 #include "shape.hpp"
@@ -35,47 +36,58 @@ class Player
         void setMaterial(int matIndex) { materialIndex = matIndex; };
 
         void render(Shader &, bool);
-        void renderPreview(Shader &, bool, int); 
+        void renderPreview(Shader &, glm::vec3, bool, int); 
 };
 
 void Player::render(Shader &shader, bool discoMode)
 {
-    glm::mat4 model;
+    block.material = discoMode ? materials[0] : materials[materialIndex - 1];
+    shader.setFloat("material.shininess", block.material.Ns);
+    
     for (int i = 0; i < SHAPE_WIDTH; i++)
         for (int j = 0; j < SHAPE_WIDTH; j++)
             for (int k = 0; k < SHAPE_WIDTH; k++)
                 if (shape.positions[i][j][k])
                 {
-                    model = glm::translate(glm::mat4(1.0f), glm::vec3(offset.x + i, offset.y + j, offset.z + k));
+                    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(offset.x + i, offset.y + j, offset.z + k));
                     shader.setMat4("model", model);
-                    block.material = discoMode ? materials[0] : materials[materialIndex - 1];
-                    shader.setFloat("material.shininess", block.material.Ns);
                     block.draw();
                 }
 }
 
 // Render a preview of where the block would be positioned if it were dropped
-void Player::renderPreview(Shader &shader, bool discoMode, int offsetY)
+void Player::renderPreview(Shader &shader, glm::vec3 cameraPos, bool discoMode, int offsetY)
 {
     // Player is already positioned where it can drop the lowest
     if (offsetY == 0)
         return;
-
-    glm::mat4 model;
+    
+    // Sort preview block positions from closest to furthest from camera
+    // NOTE: Generally, the preferred way of rendering transparent objects is by first rendering the furthest objects so you can see the overlapping objects.
+    // However, with the preview we want only the closest blocks to be visible so it looks the same as if weren't transparent at all (same as Player::render),
+    // while still being able to see other (static) blocks behind the preview.
+    std::map<float, glm::vec3> sortedPositions;
     for (int i = 0; i < SHAPE_WIDTH; i++)
         for (int j = 0; j < SHAPE_WIDTH; j++)
             for (int k = 0; k < SHAPE_WIDTH; k++)
                 if (shape.positions[i][j][k])
                 {
-                    model = glm::translate(glm::mat4(1.0f), glm::vec3(offset.x + i, offset.y + j - offsetY, offset.z + k));
-                    shader.setMat4("model", model);
-                    block.material = discoMode ? materials[0] : materials[materialIndex - 1];
-                    shader.setFloat("material.shininess", block.material.Ns);
-
-                    shader.setFloat("alpha", 0.4f + sin(glfwGetTime() * M_PI) / 4.0f);
-                    block.draw();
-                    shader.setFloat("alpha", 1.0f);
+                    glm::vec3 previewBlockPos = glm::vec3(offset.x + i, offset.y + j - offsetY, offset.z + k);
+                    float dist = glm::length(previewBlockPos - cameraPos);
+                    sortedPositions[dist] = previewBlockPos;
                 }
+            
+    // Rendering
+    block.material = discoMode ? materials[0] : materials[materialIndex - 1];
+    shader.setFloat("material.shininess", block.material.Ns);
+    shader.setFloat("alpha", 0.4f + sin(glfwGetTime() * M_PI) / 4.0f);
+    for (std::map<float, glm::vec3>::iterator it = sortedPositions.begin(); it != sortedPositions.end(); it++)
+    {
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), it->second);
+        shader.setMat4("model", model);
+        block.draw();
+    }
+    shader.setFloat("alpha", 1.0f);
 }
 
 
@@ -95,6 +107,7 @@ class Area
         void init() { initBorder(); }
         void renderBorder(Shader &);
         void renderStaticBlocks(Shader &, bool);
+        glm::vec3 getCenter() { return glm::vec3(WIDTH / 2.0f - 0.5f, HEIGHT / 2.0f - 0.5f, WIDTH / 2.0f - 0.5f); }
 
     private:
         GLuint borderVBO, borderVAO;
@@ -172,7 +185,7 @@ void Area::initBorder()
 
 
 
-int getPreviewY(Player, Area);
+int getPreviewOffset(Player, Area);
 
 // GAME
 
@@ -197,7 +210,7 @@ class Game
 
         void init();
         void processLogic();
-        void render(Shader &shader);
+        void render(Shader &shader, glm::vec3 cameraPos);
 
         void transform(Transformation);
         void drop();
@@ -240,14 +253,11 @@ void Game::processLogic()
         return;
     // TODO: posebna funkcija za procesiranje akcija kad je igra pauzirana
 
-    // Tick logic
-    tick = glfwGetTime() * 1.25f * speed - tickOffset - tickDropOffset; // BUG: treba ažurirat tickOffset kad se pauzira
-
 
     int &pox = player.offset.x;
     int &poy = player.offset.y;
     int &poz = player.offset.z;
-    
+
     // Update Player shape if 1) game started, or 2) new "level" started
     if (shouldSpawnNewBlock)
     {
@@ -275,6 +285,12 @@ void Game::processLogic()
         dropOffset = 0;
         initLowestIndex = player.shape.getLowestIndex(); // to prevent updates when rotating
     }
+
+    // Tick logic
+    tick = glfwGetTime() * 1.25f * speed - tickOffset - tickDropOffset; // BUG: treba ažurirat tickOffset kad se pauzira
+
+    
+    
 
     poy = area.HEIGHT - initLowestIndex - tick - dropOffset;
 
@@ -307,10 +323,6 @@ void Game::processLogic()
                 }
     }
 
-
-    // Scoring
-    score += discoMode ? player.shape.count * 3 : player.shape.count;
-
     // Lock the Player in place
     for (int j = 0; j < SHAPE_WIDTH; j++)
     {
@@ -327,6 +339,8 @@ void Game::processLogic()
                 }
     }
     
+    // Scoring
+    score += discoMode ? player.shape.count * 3 : player.shape.count;
 
     // Check if any rows got filled up; if so, clear them
     // OPTIMIZE: trenutno je brute force
@@ -379,7 +393,7 @@ void Game::processLogic()
     shouldSpawnNewBlock = true;
 }
 
-void Game::render(Shader &shader)
+void Game::render(Shader &shader, glm::vec3 cameraPos)
 {
     shader.use();
 
@@ -395,8 +409,8 @@ void Game::render(Shader &shader)
 
     area.renderStaticBlocks(shader, discoMode); // Must be called after rendering Player block to prevent visual stutter
     
-    int offsetY = getPreviewY(player, area); // OPTIMIZE: pozvati samo kad se player pomakne: 1) započeo novi tick, 2) transform(), 3) drop
-    player.renderPreview(shader, discoMode, offsetY);
+    int offsetY = getPreviewOffset(player, area); // OPTIMIZE: pozvati samo kad se player pomakne: 1) započeo novi tick, 2) transform(), 3) drop
+    player.renderPreview(shader, cameraPos, discoMode, offsetY);
 }
 
 void Game::transform(Transformation transform)
@@ -418,7 +432,7 @@ void Game::transform(Transformation transform)
     int &poz = player.offset.z;
 
 
-    if (transform == TRANS_FORWARD)
+    if (transform == TRANS_BACKWARD)
     {
         keyPressed = true;
 
@@ -438,7 +452,7 @@ void Game::transform(Transformation transform)
 
         player.offset.z -= 1; // forward is in the direction of -z
     }
-    else if (transform == TRANS_BACKWARD)
+    else if (transform == TRANS_FORWARD)
     {
         keyPressed = true;
 
@@ -458,7 +472,7 @@ void Game::transform(Transformation transform)
         
         player.offset.z += 1; // backward is in the direction of +z
     }
-    else if (transform == TRANS_LEFT)
+    else if (transform == TRANS_RIGHT)
     {
         keyPressed = true;
 
@@ -478,7 +492,7 @@ void Game::transform(Transformation transform)
         
         player.offset.x -= 1; // backward is in the direction of +z
     }
-    else if (transform == TRANS_RIGHT)
+    else if (transform == TRANS_LEFT)
     {
         keyPressed = true;
 
@@ -501,18 +515,14 @@ void Game::transform(Transformation transform)
 
     else if (transform == ROT_CCW)
     {
-        std::cout << "rot ccw" << std::endl;
         keyPressed = true;
-        //player.shape.rotate(player.rotationAxis, ROT_CCW);
         Shape rotated = player.shape.getRotated(player.rotationAxis, ROT_CCW);
         if (!detectHorizontalCollision(rotated))
             player.shape = rotated;
     }
     else if (transform == ROT_CW)
     {
-        std::cout << "rot cw" << std::endl;
         keyPressed = true;
-        //player.shape.rotate(player.rotationAxis, ROT_CW);
         Shape rotated = player.shape.getRotated(player.rotationAxis, ROT_CW);
         if (!detectHorizontalCollision(rotated))
             player.shape = rotated;
@@ -521,7 +531,7 @@ void Game::transform(Transformation transform)
 
 void Game::drop()
 {
-    dropOffset += getPreviewY(player, area);
+    dropOffset += getPreviewOffset(player, area);
     tickDropOffset = glfwGetTime() * 1.25f * speed - tickOffset - (int)(glfwGetTime() * 1.25f * speed - tickOffset);//glfwGetTime() * speed - (int)(glfwGetTime() * speed);
 }
 
@@ -681,35 +691,23 @@ void Game::renderRotationAxis(Shader &shader)
 }
 
 
-int getPreviewY(Player player, Area area)
+int getPreviewOffset(Player player, Area area)
 {
     int &pox = player.offset.x;
-    int  poy = player.offset.y;
+    int &poy = player.offset.y;
     int &poz = player.offset.z;
-
     int li = player.shape.getLowestIndex();
 
     for (int aj = poy; aj >= -SHAPE_WIDTH + 1; aj--)
     {
-        bool found = false;
-
-        int newOffset = 0;
-        for (int j = li; j < SHAPE_WIDTH && !found; j++)
-            for (int i = 0; i < SHAPE_WIDTH && !found; i++)
-                for (int k = 0; k < SHAPE_WIDTH && !found; k++)
-                {
+        for (int j = li; j < SHAPE_WIDTH; j++)
+            for (int i = 0; i < SHAPE_WIDTH; i++)
+                for (int k = 0; k < SHAPE_WIDTH; k++)
                     // Detect collision
-                    if (player.shape.positions[i][j][k] && (aj + j < 0 || aj + j < AREA_HEIGHT && (area.positions[pox + i][aj + j][poz + k])))
-                    {
-                        found = true;
-                        newOffset = aj + 1; // Set offset to position above collision
-                    }
-                }
-        
-        if (found)
-            return poy - newOffset; // poy = area.HEIGHT - initLowestIndex - tick - dropOffset = area.HEIGHT - initLowestIndex - tick - poy + newOffset = newOffset;
+                    if (player.shape.positions[i][j][k]
+                            && (aj + j < 0 || (aj + j < AREA_HEIGHT && area.positions[pox + i][aj + j][poz + k])))
+                        return poy - (aj + 1); // a + j = position above collision
     }
-
 }
 
 #endif

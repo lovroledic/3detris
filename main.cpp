@@ -22,14 +22,11 @@
 
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
-void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char *path);
 
 void initFreeType();
-void RenderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color);
+void renderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color);
 
 
 const unsigned int SCREEN_WIDTH  = 800;
@@ -42,9 +39,6 @@ float lastFrameTime = 0.0f;
 
 Game game;
 Camera camera;
-float lastX = SCREEN_WIDTH  / 2;
-float lastY = SCREEN_HEIGHT / 2;
-bool firstMouse = true;
 
 struct Character
 {
@@ -77,11 +71,6 @@ int main()
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glfwSetMouseButtonCallback(window, mouse_button_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
-
     // GLAD: Load all OpenGL function pointers
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress))
     {
@@ -102,7 +91,7 @@ int main()
     // ------------------------------------------------------------------------------------------------
     game.init();
     camera = Camera(game.area);
-    block = Block("resources/objects/block/white-block.obj", 0);
+    block = Block("resources/objects/block/white-block.obj");
 
     // Build and compile shader program
     Shader shader("shaders/my_shader.vert", "shaders/my_shader.frag");
@@ -114,7 +103,7 @@ int main()
     textShader.use();
     textShader.setMat4("projection", projection);
 
-    glm::vec3 areaCenter = glm::vec3( AREA_WIDTH / 2.0f - 0.5f, AREA_HEIGHT / 2.0f - 0.5f, AREA_WIDTH / 2.0f - 0.5f);
+    glm::vec3 areaCenter = game.area.getCenter();
 
     shader.use();
     shader.setInt("material.diffuse", 0); // 0 == GL_TEXTURE0
@@ -123,10 +112,7 @@ int main()
     shader.setVec3("dirLight.direction", 0.2f, 1.0f, 0.2f);
     shader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
     shader.setVec3("dirLight.diffuse", 0.8f, 0.8f, 0.8f);
-    shader.setVec3("dirLight.specular", 0.3f, 0.3f, 0.3f);
-    /* shader.setVec3("dirLight.ambient", 0.0f, 0.0f, 0.0f);
-    shader.setVec3("dirLight.diffuse", 0.0f, 0.0f, 0.0f);
-    shader.setVec3("dirLight.specular", 0.0f, 0.0f, 0.0f); */
+    shader.setVec3("dirLight.specular", 0.9f, 0.9f, 0.9f);
 
     shader.setVec3("pointLights[0].ambient", 0.0f, 0.0f, 0.0f);
     shader.setVec3("pointLights[0].diffuse", 0.6f, 0.6f, 0.6f);
@@ -156,7 +142,6 @@ int main()
     shader.setFloat("pointLights[3].linear", 0.045);
     shader.setFloat("pointLights[3].quadratic", 0.0075);
 
-    //Model whiteBlock("resources/objects/white-block/white-block.obj");
     glm::vec3 bgColor = glm::vec3(0.5f, 0.5f, 0.5f);
     
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -165,6 +150,7 @@ int main()
     double discoTimeStamp = 0.0f;
     float discoOffset = 0.0f;
     shader.setBool("discoMode", false);
+    
 
     // Render loop
     while (!glfwWindowShouldClose(window))
@@ -190,6 +176,13 @@ int main()
         //glm::mat4 projection = glm::ortho(-12.0f, 12.0f, -12.0f, 12.0f, 0.1f, 100.0f);
 
         
+        
+
+        shader.use();
+        shader.setVec3("viewPos", camera.getPosition());
+        shader.setMat4("projection", projection);
+        shader.setMat4("view", view);
+
         if (game.discoMode || game.discoInitiated)
         {
             if (game.discoInitiated)
@@ -251,39 +244,21 @@ int main()
                 shader.setBool("discoMode", false);
             }
         }
-        
-
-        /*{
-        // CUBEMAP
-            glm::mat4 model(1.0f);
-            model = glm::scale(model, glm::vec3(50.0f));
-            shader.setMat4("model", model);
-
-            glBindTexture(GL_TEXTURE_2D, whiteTexture);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }*/
-
-        shader.use();
-        shader.setVec3("viewPos", camera.Position);
-        
-        shader.setMat4("projection", projection);
-        shader.setMat4("view", view);
-
         game.processLogic();
-        game.render(shader);
+        game.render(shader, camera.getPosition());
 
-        // Text
+        // Render text
         textShader.use();
-        RenderText(textShader, "Score: " + std::to_string(game.score) + (game.discoMode ? "(x3)" : ""), 10.0f, currScrHeight - 48.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        renderText(textShader, "Score: " + std::to_string(game.score) + (game.discoMode ? "(x3)" : ""), 10.0f, currScrHeight - 48.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
         std::stringstream stream;
         stream << std::fixed << std::setprecision(1) << game.speed;
         std::string speed = stream.str();
-        RenderText(textShader, "Speed: " + speed, 10.0f, currScrHeight - 72.0f, 0.6f, glm::vec3(0.0f, 0.0f, 0.0f));
+        renderText(textShader, "Speed: " + speed, 10.0f, currScrHeight - 72.0f, 0.6f, glm::vec3(0.0f, 0.0f, 0.0f));
 
         if (game.state == OVER)
         {
             bgColor = glm::vec3(0.8f, 0.0f, 0.0f);
-            RenderText(textShader, "Game Over", 100.0f, 300.0f, 2.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+            renderText(textShader, "Game Over", 10.0f, 24.0f, 2.0f, glm::vec3(1.0f, 1.0f, 1.0f));
             shader.setVec3("dirLight.ambient", 0.05f, 0.0f, 0.0f);
             shader.setVec3("dirLight.diffuse", 0.8f, 0.0f, 0.0f);
         }
@@ -331,12 +306,12 @@ void processInput(GLFWwindow* window)
         camera.processKeyboard(DOWN, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
         camera.processKeyboard(UP, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !pressedT) {
+    /* if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !pressedT) {
         camera.toggleMode();
         pressedT = true;
     }
     else if (glfwGetKey(window, GLFW_KEY_T) == GLFW_RELEASE)
-        pressedT = false;
+        pressedT = false; */
 
 
     // Handle block control
@@ -345,26 +320,26 @@ void processInput(GLFWwindow* window)
             && glfwGetKey(window, GLFW_KEY_E) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_Q) == GLFW_RELEASE)
         game.transform(NONE);
 
-    if ((glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS && camera.Yaw >= 225 && camera.Yaw < 315)
-            || (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && camera.Yaw >= 135 && camera.Yaw < 225)
-            || (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && camera.Yaw >= 45 && camera.Yaw < 135)
-            || (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS && (camera.Yaw >= 315 || camera.Yaw < 45)))
+    if ((glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS && camera.getYaw() >= 225 && camera.getYaw() < 315)
+            || (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && camera.getYaw() >= 135 && camera.getYaw() < 225)
+            || (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && camera.getYaw() >= 45 && camera.getYaw() < 135)
+            || (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS && (camera.getYaw() >= 315 || camera.getYaw() < 45)))
         game.transform(TRANS_RIGHT);
-    if ((glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && camera.Yaw >= 225 && camera.Yaw < 315)
-            || (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS && camera.Yaw >= 135 && camera.Yaw < 225)
-            || (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS && camera.Yaw >= 45 && camera.Yaw < 135)
-            || (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && (camera.Yaw >= 315 || camera.Yaw < 45)))
+    if ((glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && camera.getYaw() >= 225 && camera.getYaw() < 315)
+            || (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS && camera.getYaw() >= 135 && camera.getYaw() < 225)
+            || (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS && camera.getYaw() >= 45 && camera.getYaw() < 135)
+            || (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && (camera.getYaw() >= 315 || camera.getYaw() < 45)))
         game.transform(TRANS_LEFT);
 
-    if ((glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && camera.Yaw >= 225 && camera.Yaw < 315)
-            || (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && camera.Yaw >= 135 && camera.Yaw < 225)
-            || (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS && camera.Yaw >= 45 && camera.Yaw < 135)
-            || (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS && (camera.Yaw >= 315 || camera.Yaw < 45)))
+    if ((glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && camera.getYaw() >= 225 && camera.getYaw() < 315)
+            || (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && camera.getYaw() >= 135 && camera.getYaw() < 225)
+            || (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS && camera.getYaw() >= 45 && camera.getYaw() < 135)
+            || (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS && (camera.getYaw() >= 315 || camera.getYaw() < 45)))
         game.transform(TRANS_BACKWARD);
-    if ((glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS && camera.Yaw >= 225 && camera.Yaw < 315)
-            || (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS && camera.Yaw >= 135 && camera.Yaw < 225)
-            || (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && camera.Yaw >= 45 && camera.Yaw < 135)
-            || (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && (camera.Yaw >= 315 || camera.Yaw < 45)))
+    if ((glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS && camera.getYaw() >= 225 && camera.getYaw() < 315)
+            || (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS && camera.getYaw() >= 135 && camera.getYaw() < 225)
+            || (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && camera.getYaw() >= 45 && camera.getYaw() < 135)
+            || (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && (camera.getYaw() >= 315 || camera.getYaw() < 45)))
         game.transform(TRANS_FORWARD);
     
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
@@ -398,43 +373,6 @@ void processInput(GLFWwindow* window)
         if (game.state == ACTIVE) game.state = PAUSED;
         else if (game.state == PAUSED) game.state = ACTIVE;
     }
-}
-
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
-{           
-    /* if (button = GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
-    {
-        std::cout << "rotation click" << std::endl;
-        if (game.player.rotationAxis == AXIS_X)
-            game.setRotationAxis(AXIS_Y);
-        else if (game.player.rotationAxis == AXIS_Y)
-            game.setRotationAxis(AXIS_Z);
-        else
-            game.setRotationAxis(AXIS_X);
-    } */
-}
-
-void mouse_callback(GLFWwindow* window, double xpos, double ypos)
-{
-    if (firstMouse)
-    {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
-
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // mouse y-coordinates go from top to bottom
-
-    lastX = xpos;
-    lastY = ypos;
-
-    //camera.processMouseMovement(xoffset, yoffset);
-}
-
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-    //camera.processMouseScroll((float) yoffset);
 }
 
 unsigned int loadTexture(const char *path)
@@ -549,7 +487,7 @@ void initFreeType()
     glBindVertexArray(0);
 }
 
-void RenderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color)
+void renderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color)
 {
     // activate corresponding render state	
     shader.use();

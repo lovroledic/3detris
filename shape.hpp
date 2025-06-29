@@ -3,28 +3,30 @@
 #define SHAPE_WIDTH 3
 
 
-struct Shape
+class Shape
 {
-    int count;
-    bool positions[SHAPE_WIDTH][SHAPE_WIDTH][SHAPE_WIDTH];
+    public:
+        int count;
+        bool positions[SHAPE_WIDTH][SHAPE_WIDTH][SHAPE_WIDTH];
 
-    void rotate(Axis, Transformation);
-    Shape getRotated(Axis, Transformation);
+        void rotate(Axis, Transformation);
+        Shape getRotated(Axis, Transformation);
 
-    int getLowestIndex();
+        int getLowestIndex();
 
-    bool getPositionAt(Axis a, unsigned int p, unsigned int q, unsigned int r)
-    {
-        if (a == AXIS_X) return positions[r][p][q];
-        else if (a == AXIS_Y) return positions[p][r][q];
-        else return positions[p][q][r];
-    }
-    void setPositionAt(Axis a, unsigned int p, unsigned int q, unsigned int r, bool val)
-    {
-        if (a == AXIS_X) positions[r][p][q] = val;
-        else if (a == AXIS_Y) positions[p][r][q] = val;
-        else positions[p][q][r] = val;
-    }
+    private:
+        bool getPositionAt(Axis a, unsigned int p, unsigned int q, unsigned int r)
+        {
+            if (a == AXIS_X) return positions[r][p][q];
+            else if (a == AXIS_Y) return positions[p][r][q];
+            else return positions[p][q][r];
+        }
+        void setPositionAt(Axis a, unsigned int p, unsigned int q, unsigned int r, bool val)
+        {
+            if (a == AXIS_X) positions[r][p][q] = val;
+            else if (a == AXIS_Y) positions[p][r][q] = val;
+            else positions[p][q][r] = val;
+        }
 };
 
 void Shape::rotate(Axis axis, Transformation rd)

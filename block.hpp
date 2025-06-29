@@ -36,8 +36,6 @@ std::vector<Material> materials;
 
 class Block
 {
-    private:
-
     public:
         GLuint VBO;
         GLuint VAO;
@@ -45,7 +43,7 @@ class Block
         Material material;
 
         Block() {};
-        Block(const std::string &objPath, GLuint defaultTextureID)
+        Block(const std::string &objPath)
         {
             loadObj(objPath);
             loadMtl("resources/objects/block/materials.mtl");
@@ -55,7 +53,12 @@ class Block
             {
                 std::cout << m.name << std::endl;
             }
-            //textureID = defaultTextureID;
+            for (Vertex v : vertices)
+            {
+                std::cout << "{" << v.position.x << ", " << v.position.y << ", " << v.position.z << "}, "
+                    << "{" << v.normal.x << ", " << v.normal.y << ", " << v.normal.z << "}, "
+                    << "{" << v.textureCoords.x << ", " << v.textureCoords.y << "}, " << std::endl;
+            }
 
             glGenVertexArrays(1, &VAO);
             glGenBuffers(1, &VBO);
@@ -63,7 +66,7 @@ class Block
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
             glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);
             glBindVertexArray(VAO);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) 0);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) offsetof(Vertex, position));
             glEnableVertexAttribArray(0);
             glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) offsetof(Vertex, normal));
             glEnableVertexAttribArray(1);
